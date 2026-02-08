@@ -1,0 +1,4 @@
+# This is an auto-generated file.
+# It is used by Prisma Migrate to lock the datasource provider.
+
+provider = "postgresql"
