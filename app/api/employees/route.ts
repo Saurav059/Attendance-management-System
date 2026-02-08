@@ -17,6 +17,19 @@ export async function POST(request: Request) {
     try {
         const data = await request.json();
 
+        // Sanitize and convert types
+        if (data.hourlyRate) {
+            data.hourlyRate = parseFloat(data.hourlyRate);
+        }
+
+        if (data.joinDate) {
+            data.joinDate = new Date(data.joinDate);
+        }
+
+        if (data.dateOfBirth) {
+            data.dateOfBirth = new Date(data.dateOfBirth);
+        }
+
         // Auto-generate employee ID if not provided
         if (!data.employeeId) {
             const count = await prisma.employee.count();
