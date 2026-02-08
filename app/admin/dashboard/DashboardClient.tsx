@@ -146,7 +146,7 @@ export default function DashboardClient({
             </div>
 
             {/* Main Content */}
-            <div className="flex-1 p-8 overflow-y-auto">
+            <div className="flex-1 p-4 pb-24 md:p-8 overflow-y-auto">
                 <header className="flex justify-between items-center mb-8">
                     <div>
                         <h2 className="text-2xl font-bold text-white">
@@ -416,6 +416,37 @@ export default function DashboardClient({
                     </div>
                 )}
             </AnimatePresence>
+            {/* Mobile Bottom Navigation */}
+            <div className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-xl border-t border-white/5 px-6 py-3 flex justify-between items-center z-40 pb-safe">
+                <button
+                    onClick={() => { setActiveView('overview'); setSelectedEmployeeId(null); }}
+                    className={`flex flex-col items-center gap-1 transition-all ${activeView === 'overview' && !selectedEmployeeId ? 'text-blue-400' : 'text-slate-500'}`}
+                >
+                    <Clock className="w-5 h-5" />
+                    <span className="text-[10px] font-medium">Dashboard</span>
+                </button>
+                <button
+                    onClick={() => { setActiveView('employees'); setSelectedEmployeeId(null); }}
+                    className={`flex flex-col items-center gap-1 transition-all ${activeView === 'employees' && !selectedEmployeeId ? 'text-blue-400' : 'text-slate-500'}`}
+                >
+                    <Users className="w-5 h-5" />
+                    <span className="text-[10px] font-medium">Employees</span>
+                </button>
+                <button
+                    onClick={() => { setActiveView('payroll'); setSelectedEmployeeId(null); }}
+                    className={`flex flex-col items-center gap-1 transition-all ${activeView === 'payroll' ? 'text-blue-400' : 'text-slate-500'}`}
+                >
+                    <DollarSign className="w-5 h-5" />
+                    <span className="text-[10px] font-medium">Payroll</span>
+                </button>
+                <button
+                    onClick={() => { setActiveView('settings'); setSelectedEmployeeId(null); }}
+                    className={`flex flex-col items-center gap-1 transition-all ${activeView === 'settings' ? 'text-blue-400' : 'text-slate-500'}`}
+                >
+                    <Settings className="w-5 h-5" />
+                    <span className="text-[10px] font-medium">Settings</span>
+                </button>
+            </div>
         </div>
     );
 }
