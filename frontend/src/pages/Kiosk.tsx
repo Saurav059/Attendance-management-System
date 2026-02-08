@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api/client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, UserCheck, MapPin } from 'lucide-react';
+import { Clock, UserCheck, MapPin, Settings } from 'lucide-react';
 import { format } from 'date-fns';
+import { Link } from 'react-router-dom';
 
 const Kiosk = () => {
     const [employeeId, setEmployeeId] = useState('');
@@ -150,9 +151,25 @@ const Kiosk = () => {
                         </motion.div>
                     )}
                 </AnimatePresence>
+
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 1 }}
+                    className="flex justify-center"
+                >
+                    <Link
+                        to="/login"
+                        className="flex items-center gap-2 text-slate-500 hover:text-slate-300 transition-colors text-sm"
+                    >
+                        <Settings className="w-4 h-4" />
+                        HR Admin Login
+                    </Link>
+                </motion.div>
             </div>
         </div>
     );
 };
 
 export default Kiosk;
+
