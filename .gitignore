@@ -1,0 +1,35 @@
+# Root .gitignore for Attendance Management System
+
+# Node modules
+**/node_modules/
+
+# Build directories
+**/dist/
+**/build/
+
+# Environment variables
+**/.env
+**/.env.local
+**/.env.*.local
+
+# IDEs
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+thumbs.db
+
+# Database
+**/prisma/dev.db
+**/prisma/dev.db-journal
+
+# Logs
+**/logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Misc
+.cache/
