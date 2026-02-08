@@ -42,8 +42,9 @@ export default function DashboardClient({
         try {
             const res = await axios.get('/api/employees');
             setEmployees(res.data);
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
+            alert('Failed to load employee data: ' + (err.response?.data?.message || err.message));
         } finally {
             setLoading(false);
         }
@@ -184,8 +185,8 @@ export default function DashboardClient({
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             <div className="lg:col-span-2 bg-slate-800/50 border border-white/5 rounded-2xl p-6">
                                 <h3 className="text-lg font-bold text-white mb-6">Attendance Trends</h3>
-                                <div className="h-[300px]">
-                                    <ResponsiveContainer width="100%" height="100%">
+                                <div className="h-[300px] w-full">
+                                    <ResponsiveContainer width="99%" height="100%">
                                         <LineChart data={stats?.chartData || []}>
                                             <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
                                             <XAxis
@@ -304,48 +305,94 @@ export default function DashboardClient({
                         </div>
                     </div>
                 ) : activeView === 'employees' ? (
-                    <div className="bg-slate-800/50 border border-white/5 rounded-2xl overflow-hidden">
-                        <table className="w-full text-left">
-                            <thead>
-                                <tr className="border-b border-white/5 bg-white/5">
-                                    <th className="px-6 py-4 text-sm font-medium text-slate-400 uppercase tracking-widest">Employee ID</th>
-                                    <th className="px-6 py-4 text-sm font-medium text-slate-400 uppercase tracking-widest">Name</th>
-                                    <th className="px-6 py-4 text-sm font-medium text-slate-400 uppercase tracking-widest">Department</th>
-                                    <th className="px-6 py-4 text-sm font-medium text-slate-400 uppercase tracking-widest">Role</th>
-                                    <th className="px-6 py-4 text-sm font-medium text-slate-400 text-right uppercase tracking-widest">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                                {employees.map((emp) => (
-                                    <tr
-                                        key={emp.id}
-                                        className="hover:bg-white/5 transition-colors group cursor-pointer"
-                                        onClick={() => setSelectedEmployeeId(emp.id)}
-                                    >
-                                        <td className="px-6 py-4 font-mono text-blue-400 text-sm">{emp.employeeId}</td>
-                                        <td className="px-6 py-4 text-white font-medium">{emp.name}</td>
-                                        <td className="px-6 py-4 text-slate-400">{emp.department || 'N/A'}</td>
-                                        <td className="px-6 py-4">
-                                            <span className="px-2 py-1 bg-blue-500/10 text-blue-400 rounded-md text-xs font-medium border border-blue-500/20">
-                                                {emp.role}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
+                    <div className="space-y-4">
+                        {/* Desktop Table View */}
+                        <div className="hidden md:block bg-slate-800/50 border border-white/5 rounded-2xl overflow-hidden">
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="border-b border-white/5 bg-white/5">
+                                        <th className="px-6 py-4 text-sm font-medium text-slate-400 uppercase tracking-widest">Employee ID</th>
+                                        <th className="px-6 py-4 text-sm font-medium text-slate-400 uppercase tracking-widest">Name</th>
+                                        <th className="px-6 py-4 text-sm font-medium text-slate-400 uppercase tracking-widest">Department</th>
+                                        <th className="px-6 py-4 text-sm font-medium text-slate-400 uppercase tracking-widest">Role</th>
+                                        <th className="px-6 py-4 text-sm font-medium text-slate-400 text-right uppercase tracking-widest">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                    {employees.map((emp) => (
+                                        <tr
+                                            key={emp.id}
+                                            className="hover:bg-white/5 transition-colors group cursor-pointer"
+                                            onClick={() => setSelectedEmployeeId(emp.id)}
+                                        >
+                                            <td className="px-6 py-4 font-mono text-blue-400 text-sm">{emp.employeeId}</td>
+                                            <td className="px-6 py-4 text-white font-medium">{emp.name}</td>
+                                            <td className="px-6 py-4 text-slate-400">{emp.department || 'N/A'}</td>
+                                            <td className="px-6 py-4">
+                                                <span className="px-2 py-1 bg-blue-500/10 text-blue-400 rounded-md text-xs font-medium border border-blue-500/20">
+                                                    {emp.role}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDeleteEmployee(emp.id);
+                                                    }}
+                                                    disabled={isDeleting === emp.id}
+                                                    className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-all text-sm font-medium cursor-pointer"
+                                                >
+                                                    {isDeleting === emp.id ? 'Deleting...' : 'Remove'}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Mobile Card View */}
+                        <div className="md:hidden space-y-3 pb-20">
+                            {employees.map((emp) => (
+                                <div
+                                    key={emp.id}
+                                    className="bg-slate-800/50 p-4 rounded-xl border border-white/5 active:scale-[0.98] transition-transform"
+                                    onClick={() => setSelectedEmployeeId(emp.id)}
+                                >
+                                    <div className="flex justify-between items-start mb-3">
+                                        <div>
+                                            <h4 className="text-white font-medium text-lg">{emp.name}</h4>
+                                            <p className="text-blue-400 text-xs font-mono bg-blue-500/10 px-2 py-0.5 rounded inline-block mt-1">
+                                                {emp.employeeId}
+                                            </p>
+                                        </div>
+                                        <span className="px-2 py-1 bg-slate-700/50 text-slate-300 rounded-md text-[10px] font-medium border border-white/5 uppercase tracking-wider">
+                                            {emp.role}
+                                        </span>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4 pt-3 border-t border-white/5">
+                                        <div>
+                                            <span className="block text-slate-500 text-[10px] uppercase tracking-wider mb-1">Department</span>
+                                            <span className="text-slate-300 text-sm">{emp.department || 'N/A'}</span>
+                                        </div>
+                                        <div className="text-right flex flex-col items-end">
+                                            <span className="block text-slate-500 text-[10px] uppercase tracking-wider mb-1">Action</span>
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     handleDeleteEmployee(emp.id);
                                                 }}
                                                 disabled={isDeleting === emp.id}
-                                                className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-all text-sm font-medium cursor-pointer"
+                                                className="text-red-400 text-sm font-medium active:text-red-300 py-1"
                                             >
-                                                {isDeleting === emp.id ? 'Deleting...' : 'Remove'}
+                                                {isDeleting === emp.id ? 'Deleting...' : 'Remove User'}
                                             </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 ) : activeView === 'payroll' ? (
                     <div className="space-y-8">
