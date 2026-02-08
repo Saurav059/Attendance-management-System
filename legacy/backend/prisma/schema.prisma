@@ -1,0 +1,56 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model HrAdmin {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Employee {
+  id          String       @id @default(uuid())
+  employeeId  String       @unique
+  name        String
+  role        String       @default("EMPLOYEE")
+  department  String?
+  position    String?
+  location    String?
+  gender      String?
+  dateOfBirth DateTime?
+  joinDate    DateTime     @default(now())
+  phoneNumber String?
+  hourlyRate  Float        @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  attendances Attendance[]
+}
+
+model Attendance {
+  id               String   @id @default(uuid())
+  employeeId       String
+  employee         Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  clockInTime      DateTime
+  clockOutTime     DateTime?
+  totalHours       Float?
+  location         String? // Keeping for backward compatibility or general location
+  clockInLocation  String?
+  clockOutLocation String?
+  status           String   @default("PRESENT")
+  
+  @@index([employeeId])
+}
+
