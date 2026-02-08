@@ -8,10 +8,9 @@ const AddEmployeeForm = ({ onSuccess, onCancel }: { onSuccess: () => void, onCan
     const [formData, setFormData] = useState({
         name: '',
         employeeId: '',
-        department: '',
         role: 'EMPLOYEE',
         hourlyRate: 20,
-        position: '',
+        maxHoursPerWeek: 40,
         location: '',
         gender: '',
         dateOfBirth: '',
@@ -25,14 +24,13 @@ const AddEmployeeForm = ({ onSuccess, onCancel }: { onSuccess: () => void, onCan
         try {
             const payload: any = { ...formData };
             if (!payload.employeeId) delete payload.employeeId;
-            if (!payload.position) delete payload.position;
             if (!payload.location) delete payload.location;
             if (!payload.gender) delete payload.gender;
             if (!payload.dateOfBirth) delete payload.dateOfBirth;
             if (!payload.phoneNumber) delete payload.phoneNumber;
-            if (!payload.department) delete payload.department;
 
             payload.hourlyRate = payload.hourlyRate ? Number(payload.hourlyRate) : 0;
+            payload.maxHoursPerWeek = payload.maxHoursPerWeek ? Number(payload.maxHoursPerWeek) : 40;
 
             await axios.post('/api/employees', payload);
             onSuccess();
@@ -67,26 +65,18 @@ const AddEmployeeForm = ({ onSuccess, onCancel }: { onSuccess: () => void, onCan
                                 onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
                             />
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-400 mb-1">Position</label>
-                            <input
-                                className="w-full bg-slate-900/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="Engineer"
-                                value={formData.position}
-                                onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                            />
-                        </div>
                     </div>
                 </div>
 
                 <div className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-slate-400 mb-1">Department</label>
+                        <label className="block text-sm font-medium text-slate-400 mb-1">Max Hours/Week</label>
                         <input
+                            type="number"
                             className="w-full bg-slate-900/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Engineering"
-                            value={formData.department}
-                            onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                            placeholder="40"
+                            value={formData.maxHoursPerWeek}
+                            onChange={(e) => setFormData({ ...formData, maxHoursPerWeek: Number(e.target.value) })}
                         />
                     </div>
                     <div>

@@ -31,6 +31,19 @@ export async function PATCH(
     try {
         const { id } = await params;
         const data = await request.json();
+
+        // Sanitize numbers
+        if (data.hourlyRate) data.hourlyRate = parseFloat(data.hourlyRate);
+        if (data.maxHoursPerWeek) data.maxHoursPerWeek = parseFloat(data.maxHoursPerWeek);
+
+        // Sanitize dates
+        if (data.joinDate) data.joinDate = new Date(data.joinDate);
+        if (data.dateOfBirth) data.dateOfBirth = new Date(data.dateOfBirth);
+
+        // Remove legacy fields if active in frontend state
+        delete data.department;
+        delete data.position;
+
         const employee = await prisma.employee.update({
             where: { id },
             data,
@@ -52,6 +65,7 @@ export async function DELETE(
         });
         return NextResponse.json({ message: 'Employee deleted successfully' });
     } catch (error: any) {
-        return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
+        console.error('Delete error:', error);
+        return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
     }
 }

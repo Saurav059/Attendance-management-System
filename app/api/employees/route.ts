@@ -22,6 +22,12 @@ export async function POST(request: Request) {
             data.hourlyRate = parseFloat(data.hourlyRate);
         }
 
+        if (data.maxHoursPerWeek) {
+            data.maxHoursPerWeek = parseFloat(data.maxHoursPerWeek);
+        } else {
+            data.maxHoursPerWeek = 40; // Default
+        }
+
         if (data.joinDate) {
             data.joinDate = new Date(data.joinDate);
         }

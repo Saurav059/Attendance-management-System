@@ -116,10 +116,10 @@ const EmployeeProfile = ({ employeeId, onBack }: EmployeeProfileProps) => {
                             <div className="flex flex-wrap items-center gap-4 mb-2">
                                 <h1 className="text-4xl font-bold text-white">{employee.name}</h1>
                                 <span className="bg-blue-500/10 text-blue-400 px-3 py-1 rounded-full text-xs font-semibold border border-blue-500/20">
-                                    {employee.position || employee.role}
+                                    {employee.role}
                                 </span>
                             </div>
-                            <p className="text-slate-400 text-lg mb-6">{employee.department}</p>
+                            <p className="text-slate-400 text-lg mb-6">Max Hours: {employee.maxHoursPerWeek || 40}h/week</p>
 
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
                                 <InfoItem icon={User} label="Employee ID" value={employee.employeeId} />
@@ -195,6 +195,7 @@ const EmployeeProfile = ({ employeeId, onBack }: EmployeeProfileProps) => {
                             <tr className="bg-slate-900/50">
                                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Date</th>
                                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Clock In</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Location (In/Out)</th>
                                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Clock Out</th>
                                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Hours</th>
                                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Actions</th>
@@ -208,6 +209,12 @@ const EmployeeProfile = ({ employeeId, onBack }: EmployeeProfileProps) => {
                                     </td>
                                     <td className="px-6 py-4 text-sm text-slate-400 font-mono">
                                         {format(new Date(record.clockInTime), 'HH:mm:ss')}
+                                    </td>
+                                    <td className="px-6 py-4 text-xs text-slate-400">
+                                        <div className="flex flex-col">
+                                            <span>{record.clockInLocation || '—'}</span>
+                                            {record.clockOutLocation && <span className="text-slate-500">{record.clockOutLocation}</span>}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 text-sm text-slate-400 font-mono">
                                         {record.clockOutTime ? format(new Date(record.clockOutTime), 'HH:mm:ss') : '--:--:--'}

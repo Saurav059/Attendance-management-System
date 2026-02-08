@@ -194,7 +194,7 @@ export default function DashboardClient({
 
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             <div className="lg:col-span-2 bg-slate-800/50 border border-white/5 rounded-2xl p-6">
-                                <h3 className="text-lg font-bold text-white mb-6">Attendance Trends</h3>
+                                <h3 className="text-lg font-bold text-white mb-6">Biweekly Attendance Trends</h3>
                                 <div className="h-[300px] w-full">
                                     <ResponsiveContainer width="99%" height="100%">
                                         <LineChart data={stats?.chartData || []}>
@@ -230,26 +230,30 @@ export default function DashboardClient({
 
                             <div className="bg-slate-800/50 border border-white/5 rounded-2xl p-6">
                                 <h3 className="text-lg font-bold text-white mb-6">Recent Activity</h3>
-                                <div className="space-y-4">
+                                <div className="space-y-4 overflow-y-auto custom-scrollbar h-[400px] pr-2">
                                     {(!stats?.recentActivity || stats.recentActivity.length === 0) && (
-                                        <p className="text-slate-500 text-center py-4">No activity today</p>
+                                        <p className="text-slate-500 text-center py-4">No recent activity</p>
                                     )}
                                     {stats?.recentActivity?.map((record: any) => (
-                                        <div key={record.id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs text-white uppercase">
-                                                    {record.employee.name.charAt(0)}
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm font-medium text-white">{record.employee.name}</p>
-                                                    <p className="text-xs text-slate-400">
-                                                        {record.clockOutTime ? 'Clocked Out' : 'Clocked In'}
+                                        <div key={record.id} className="flex items-center gap-4 p-3 bg-white/5 border border-white/5 rounded-xl">
+                                            <div className={`p-2 rounded-lg ${!record.clockOutTime ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                                                {!record.clockOutTime ? <Clock className="w-4 h-4" /> : <LogOut className="w-4 h-4" />}
+                                            </div>
+                                            <div>
+                                                <p className="text-white text-sm font-medium">
+                                                    {record.employee.name} clocked {record.clockOutTime ? 'OUT' : 'IN'}
+                                                </p>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    <p className="text-slate-400 text-xs text-slate-500">
+                                                        {format(new Date(record.clockOutTime || record.clockInTime), 'HH:mm')}
                                                     </p>
+                                                    {(record.clockOutLocation || record.clockInLocation) && (
+                                                        <span className="text-slate-500 text-xs flex items-center gap-1">
+                                                            in {record.clockOutTime ? record.clockOutLocation : record.clockInLocation}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
-                                            <span className="text-xs text-slate-400 font-mono">
-                                                {format(new Date(record.clockOutTime || record.clockInTime), 'HH:mm')}
-                                            </span>
                                         </div>
                                     ))}
                                 </div>
@@ -267,6 +271,7 @@ export default function DashboardClient({
                                         <tr className="bg-white/5">
                                             <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Employee</th>
                                             <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Clock In</th>
+                                            <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Start Loc</th>
                                             <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Clock Out</th>
                                             <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Total Hours</th>
                                             <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Status</th>
@@ -284,6 +289,9 @@ export default function DashboardClient({
                                                     ) : (
                                                         <span className="text-xs text-slate-500">—</span>
                                                     )}
+                                                </td>
+                                                <td className="px-6 py-4 text-xs text-slate-400">
+                                                    {detail.clockInLocation || '—'}
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     {detail.clockOut ? (
@@ -323,7 +331,6 @@ export default function DashboardClient({
                                     <tr className="border-b border-white/5 bg-white/5">
                                         <th className="px-6 py-4 text-sm font-medium text-slate-400 uppercase tracking-widest">Employee ID</th>
                                         <th className="px-6 py-4 text-sm font-medium text-slate-400 uppercase tracking-widest">Name</th>
-                                        <th className="px-6 py-4 text-sm font-medium text-slate-400 uppercase tracking-widest">Department</th>
                                         <th className="px-6 py-4 text-sm font-medium text-slate-400 uppercase tracking-widest">Role</th>
                                         <th className="px-6 py-4 text-sm font-medium text-slate-400 text-right uppercase tracking-widest">Actions</th>
                                     </tr>
@@ -337,7 +344,6 @@ export default function DashboardClient({
                                         >
                                             <td className="px-6 py-4 font-mono text-blue-400 text-sm">{emp.employeeId}</td>
                                             <td className="px-6 py-4 text-white font-medium">{emp.name}</td>
-                                            <td className="px-6 py-4 text-slate-400">{emp.department || 'N/A'}</td>
                                             <td className="px-6 py-4">
                                                 <span className="px-2 py-1 bg-blue-500/10 text-blue-400 rounded-md text-xs font-medium border border-blue-500/20">
                                                     {emp.role}
@@ -383,8 +389,8 @@ export default function DashboardClient({
 
                                     <div className="grid grid-cols-2 gap-4 pt-3 border-t border-white/5">
                                         <div>
-                                            <span className="block text-slate-500 text-[10px] uppercase tracking-wider mb-1">Department</span>
-                                            <span className="text-slate-300 text-sm">{emp.department || 'N/A'}</span>
+                                            <span className="block text-slate-500 text-[10px] uppercase tracking-wider mb-1">Max Hours/Week</span>
+                                            <span className="text-slate-300 text-sm">{emp.maxHoursPerWeek || 40}h</span>
                                         </div>
                                         <div className="text-right flex flex-col items-end">
                                             <span className="block text-slate-500 text-[10px] uppercase tracking-wider mb-1">Action</span>

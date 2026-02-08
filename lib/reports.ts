@@ -9,29 +9,24 @@ export async function getDashboardStats() {
     const tomorrow = endOfDay(today);
     const sevenDaysAgo = subDays(startOfDay(new Date()), 6);
 
-    // Fetch all data in parallel to reduce wait time
     const [totalEmployees, attendancesToday, allEmployees, weekAttendances] = await Promise.all([
         prisma.employee.count(),
+        // Get recent activity (up to 500)
         prisma.attendance.findMany({
-            where: {
-                clockInTime: {
-                    gte: today,
-                    lt: tomorrow,
-                },
+            take: 500,
+            orderBy: {
+                clockInTime: 'desc'
             },
             include: {
                 employee: true,
-            },
-            orderBy: {
-                clockInTime: 'desc'
             }
         }),
         prisma.employee.findMany(),
-        // Fetch all attendances for the last 7 days in one query
+        // Fetch all attendances for the last 14 days for charts
         prisma.attendance.findMany({
             where: {
                 clockInTime: {
-                    gte: sevenDaysAgo,
+                    gte: subDays(startOfDay(new Date()), 13),
                 },
             },
             select: {
@@ -86,9 +81,9 @@ export async function getDashboardStats() {
         };
     });
 
-    // Build chart data from the single query result
+    // Build chart data for the last 14 days (Biweekly)
     const chartData: { date: string; present: number }[] = [];
-    for (let i = 6; i >= 0; i--) {
+    for (let i = 13; i >= 0; i--) {
         const date = subDays(startOfDay(new Date()), i);
         const dateStr = format(date, 'yyyy-MM-dd');
         const nextDate = endOfDay(date);
@@ -200,12 +195,13 @@ export async function getEmployeeStats(id: string) {
     }
 
     const now = new Date();
-    const startOfCurMonth = startOfMonth(now);
+    // Biweekly Stats: Last 14 days
+    const fourteenDaysAgo = subDays(startOfDay(now), 14);
 
-    const monthlyAttendances = employee.attendances.filter((a) => a.clockInTime >= startOfCurMonth);
-    const totalMonthlyHours = monthlyAttendances.reduce((acc: number, a) => acc + (a.totalHours || 0), 0);
-    const completedShifts = monthlyAttendances.filter((a) => a.clockOutTime).length;
-    const avgHoursPerShift = completedShifts > 0 ? totalMonthlyHours / completedShifts : 0;
+    const biweeklyAttendances = employee.attendances.filter((a) => a.clockInTime >= fourteenDaysAgo);
+    const totalBiweeklyHours = biweeklyAttendances.reduce((acc: number, a) => acc + (a.totalHours || 0), 0);
+    const completedShifts = biweeklyAttendances.filter((a) => a.clockOutTime).length;
+    const avgHoursPerShift = completedShifts > 0 ? totalBiweeklyHours / completedShifts : 0;
 
     // 30-day trend
     const chartData: { date: string; hours: number }[] = [];
@@ -229,12 +225,12 @@ export async function getEmployeeStats(id: string) {
             attendances: undefined
         },
         stats: {
-            totalMonthlyHours: parseFloat(totalMonthlyHours.toFixed(2)),
+            totalBiweeklyHours: parseFloat(totalBiweeklyHours.toFixed(2)),
             avgHoursPerShift: parseFloat(avgHoursPerShift.toFixed(2)),
             totalShifts: completedShifts,
             status: employee.attendances[0] && !employee.attendances[0].clockOutTime ? 'CLOCKED_IN' : 'CLOCKED_OUT',
         },
-        history: JSON.parse(JSON.stringify(employee.attendances.slice(0, 30))),
+        history: JSON.parse(JSON.stringify(employee.attendances.slice(0, 90))),
         chartData,
     };
 }
