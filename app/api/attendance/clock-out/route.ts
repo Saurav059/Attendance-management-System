@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { findEmployee } from '@/lib/attendance-logic';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 export async function POST(request: Request) {
     try {
         const { identifier, location } = await request.json();

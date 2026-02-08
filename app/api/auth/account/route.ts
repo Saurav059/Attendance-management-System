@@ -3,6 +3,9 @@ import prisma from '@/lib/prisma';
 import * as bcrypt from 'bcryptjs';
 import { getSession } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function PATCH(request: Request) {
     try {
         const session = await getSession();

@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getEmployeeStats } from '@/lib/reports';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function GET(
     request: Request,
     { params }: { params: Promise<{ id: string }> }
