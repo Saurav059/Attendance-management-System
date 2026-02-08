@@ -12,8 +12,14 @@ CREATE TABLE "Employee" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "employeeId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
-    "role" TEXT NOT NULL,
-    "department" TEXT NOT NULL,
+    "role" TEXT NOT NULL DEFAULT 'EMPLOYEE',
+    "department" TEXT,
+    "position" TEXT,
+    "location" TEXT,
+    "gender" TEXT,
+    "dateOfBirth" DATETIME,
+    "joinDate" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "phoneNumber" TEXT,
     "hourlyRate" REAL NOT NULL DEFAULT 0,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL
@@ -26,8 +32,11 @@ CREATE TABLE "Attendance" (
     "clockInTime" DATETIME NOT NULL,
     "clockOutTime" DATETIME,
     "totalHours" REAL,
+    "location" TEXT,
+    "clockInLocation" TEXT,
+    "clockOutLocation" TEXT,
     "status" TEXT NOT NULL DEFAULT 'PRESENT',
-    CONSTRAINT "Attendance_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    CONSTRAINT "Attendance_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateIndex
