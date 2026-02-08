@@ -71,8 +71,8 @@ export default function DashboardClient({
         >
             <div className="flex justify-between items-start">
                 <div>
-                    <p className="text-slate-400 text-sm mb-1">{title}</p>
-                    <h3 className="text-3xl font-bold text-white">{value || 0}</h3>
+                    <p className="text-slate-400 text-xs md:text-sm mb-1">{title}</p>
+                    <h3 className="text-2xl md:text-3xl font-bold text-white">{value || 0}</h3>
                 </div>
                 <div className={`p-3 rounded-lg ${color} bg-opacity-20`}>
                     <Icon className={`w-6 h-6 ${color.replace('bg-', 'text-')}`} />
@@ -148,24 +148,34 @@ export default function DashboardClient({
 
             {/* Main Content */}
             <div className="flex-1 p-4 pb-24 md:p-8 overflow-y-auto">
-                <header className="flex justify-between items-center mb-8">
+                <header className="flex justify-between items-center mb-6 md:mb-8">
                     <div>
-                        <h2 className="text-2xl font-bold text-white">
+                        <h2 className="text-xl md:text-2xl font-bold text-white">
                             {selectedEmployeeId ? 'Employee Profile' :
                                 activeView === 'overview' ? 'Dashboard Overview' :
                                     activeView === 'employees' ? 'Employee Management' :
                                         activeView === 'payroll' ? 'Payroll Management' : 'HR Settings'}
                         </h2>
                     </div>
-                    {activeView === 'employees' && !selectedEmployeeId && (
+                    <div className="flex items-center gap-3">
+                        {activeView === 'employees' && !selectedEmployeeId && (
+                            <button
+                                onClick={() => setShowAddModal(true)}
+                                className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg flex items-center gap-2 transition-colors shadow-lg shadow-blue-600/20 cursor-pointer text-sm"
+                            >
+                                <Plus className="w-4 h-4" />
+                                <span className="hidden md:inline">Add Employee</span>
+                                <span className="md:hidden">Add</span>
+                            </button>
+                        )}
                         <button
-                            onClick={() => setShowAddModal(true)}
-                            className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-lg shadow-blue-600/20 cursor-pointer"
+                            onClick={logout}
+                            className="md:hidden p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                            aria-label="Sign Out"
                         >
-                            <Plus className="w-4 h-4" />
-                            Add Employee
+                            <LogOut className="w-5 h-5" />
                         </button>
-                    )}
+                    </div>
                 </header>
 
                 {selectedEmployeeId ? (
@@ -361,7 +371,7 @@ export default function DashboardClient({
                                 >
                                     <div className="flex justify-between items-start mb-3">
                                         <div>
-                                            <h4 className="text-white font-medium text-lg">{emp.name}</h4>
+                                            <h4 className="text-white font-medium text-base">{emp.name}</h4>
                                             <p className="text-blue-400 text-xs font-mono bg-blue-500/10 px-2 py-0.5 rounded inline-block mt-1">
                                                 {emp.employeeId}
                                             </p>
