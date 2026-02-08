@@ -36,13 +36,8 @@ async function bootstrap() {
   }));
 
   const port = process.env.PORT || 3000;
-
-  if (process.env.NODE_ENV !== 'production') {
-    await app.listen(port);
-    console.log(`🚀 Application is running on: http://localhost:${port}/api`);
-  } else {
-    await app.init();
-  }
+  await app.listen(port);
+  console.log(`🚀 Application is running on port: ${port}`);
 }
 
 bootstrap();
