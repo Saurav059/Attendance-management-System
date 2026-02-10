@@ -8,7 +8,7 @@ export async function findEmployee(identifier: string) {
         where: {
             OR: [
                 { employeeId: trimmedId },
-                { name: { equals: trimmedId, mode: 'insensitive' } }
+                { name: { equals: trimmedId } }
             ]
         }
     });

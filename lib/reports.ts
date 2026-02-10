@@ -1,21 +1,23 @@
 import prisma from './prisma';
 import { Attendance, Employee } from '@prisma/client';
-import { startOfDay, endOfDay, format, subDays, startOfMonth } from 'date-fns';
+import { startOfDay, endOfDay, format, subDays } from 'date-fns';
 
 type AttendanceWithEmployee = Attendance & { employee: Employee };
 
-export async function getDashboardStats() {
-    const today = startOfDay(new Date());
-    const tomorrow = endOfDay(today);
-    const sevenDaysAgo = subDays(startOfDay(new Date()), 6);
+export async function getDashboardStats(targetDate = new Date()) {
+    const selectedDate = startOfDay(new Date(targetDate));
+    const nextDay = endOfDay(selectedDate);
+    // Date boundaries for queries
 
-    const [totalEmployees, attendancesToday, allEmployees, weekAttendances] = await Promise.all([
+    const [totalEmployees, attendancesForDate, allEmployees, weekAttendances, allAttendances] = await Promise.all([
         prisma.employee.count(),
-        // Get recent activity (up to 500)
+        // Get attendance for the selected date
         prisma.attendance.findMany({
-            take: 500,
-            orderBy: {
-                clockInTime: 'desc'
+            where: {
+                clockInTime: {
+                    gte: selectedDate,
+                    lte: nextDay,
+                },
             },
             include: {
                 employee: true,
@@ -33,15 +35,25 @@ export async function getDashboardStats() {
                 employeeId: true,
                 clockInTime: true,
             }
+        }),
+        // Recent activity (still globally recent)
+        prisma.attendance.findMany({
+            take: 50,
+            orderBy: {
+                clockInTime: 'desc'
+            },
+            include: {
+                employee: true,
+            }
         })
     ]);
 
-    const uniqueEmployeeIds = new Set(attendancesToday.map((a) => a.employeeId));
+    const uniqueEmployeeIds = new Set(attendancesForDate.map((a: AttendanceWithEmployee) => a.employeeId));
     const presentCount = uniqueEmployeeIds.size;
     const absentCount = totalEmployees - presentCount;
 
-    const dailyDetails = allEmployees.map((emp) => {
-        const empAttendances = attendancesToday.filter((a) => a.employeeId === emp.id);
+    const dailyDetails = allEmployees.map((emp: Employee) => {
+        const empAttendances = attendancesForDate.filter((a: AttendanceWithEmployee) => a.employeeId === emp.id);
 
         if (empAttendances.length === 0) {
             return {
@@ -56,15 +68,15 @@ export async function getDashboardStats() {
             };
         }
 
-        const sortedAtt = [...empAttendances].sort((a, b) => a.clockInTime.getTime() - b.clockInTime.getTime());
+        const sortedAtt = [...empAttendances].sort((a: AttendanceWithEmployee, b: AttendanceWithEmployee) => a.clockInTime.getTime() - b.clockInTime.getTime());
         const firstClockIn = sortedAtt[0].clockInTime;
         const lastClockOut = sortedAtt[sortedAtt.length - 1].clockOutTime;
-        const isCurrentlyClockedIn = empAttendances.some((a) => !a.clockOutTime);
+        const isCurrentlyClockedIn = empAttendances.some((a: AttendanceWithEmployee) => !a.clockOutTime);
         const status = isCurrentlyClockedIn ? 'CLOCKED_IN' : 'COMPLETED';
-        const totalHours = empAttendances.reduce((sum: number, a) => sum + (a.totalHours || 0), 0);
+        const totalHours = empAttendances.reduce((sum: number, a: AttendanceWithEmployee) => sum + (a.totalHours || 0), 0);
 
         const locations = new Set<string>();
-        empAttendances.forEach((a) => {
+        empAttendances.forEach((a: AttendanceWithEmployee) => {
             if (a.clockInLocation) locations.add(a.clockInLocation);
             if (a.clockOutLocation) locations.add(a.clockOutLocation);
         });
@@ -75,7 +87,9 @@ export async function getDashboardStats() {
             employeeId: emp.employeeId,
             status,
             clockIn: firstClockIn,
+            clockInLocation: sortedAtt[0].clockInLocation,
             clockOut: isCurrentlyClockedIn ? null : lastClockOut,
+            clockOutLocation: isCurrentlyClockedIn ? null : sortedAtt[sortedAtt.length - 1].clockOutLocation,
             totalHours,
             locations: Array.from(locations),
         };
@@ -89,11 +103,11 @@ export async function getDashboardStats() {
         const nextDate = endOfDay(date);
 
         // Filter in-memory instead of querying database
-        const dailyAtt = weekAttendances.filter((a) => {
+        const dailyAtt = weekAttendances.filter((a: { employeeId: string; clockInTime: Date }) => {
             const clockInDate = new Date(a.clockInTime);
             return clockInDate >= date && clockInDate < nextDate;
         });
-        const unique = new Set(dailyAtt.map((a) => a.employeeId));
+        const unique = new Set(dailyAtt.map((a: any) => a.employeeId));
 
         chartData.push({
             date: dateStr,
@@ -108,10 +122,10 @@ export async function getDashboardStats() {
         totalEmployees,
         present: presentCount,
         absent: Math.max(0, absentCount),
-        activeClockIns: attendancesToday.filter((a: any) => !a.clockOutTime).length,
+        activeClockIns: attendancesForDate.filter((a: AttendanceWithEmployee) => !a.clockOutTime).length,
         chartData,
         weeklyTrend: JSON.parse(JSON.stringify(weeklyTrend)),
-        recentActivity: JSON.parse(JSON.stringify(attendancesToday.slice(0, 5))),
+        recentActivity: JSON.parse(JSON.stringify(allAttendances.slice(0, 5))),
         dailyDetails: JSON.parse(JSON.stringify(dailyDetails)),
     };
 }
@@ -130,7 +144,7 @@ export async function getWeeklyHistory() {
 
     const weeklyData: Record<string, { week: string, hours: number, count: number }> = {};
 
-    attendances.forEach((att) => {
+    attendances.forEach((att: { clockInTime: Date; totalHours: number | null }) => {
         // Simple week grouping
         const date = new Date(att.clockInTime);
         const day = date.getDay();
@@ -161,7 +175,7 @@ export async function getBiWeeklyPayroll() {
         }
     });
 
-    const payroll = employees.map((emp) => {
+    const payroll = employees.map((emp: Employee & { attendances: Attendance[] }) => {
         const hours = emp.attendances.reduce((sum: number, a: Attendance) => sum + (a.totalHours || 0), 0);
         return {
             id: emp.id,
@@ -197,10 +211,15 @@ export async function getEmployeeStats(id: string) {
     const now = new Date();
     // Biweekly Stats: Last 14 days
     const fourteenDaysAgo = subDays(startOfDay(now), 14);
+    const startOfMonthDate = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const biweeklyAttendances = employee.attendances.filter((a) => a.clockInTime >= fourteenDaysAgo);
-    const totalBiweeklyHours = biweeklyAttendances.reduce((acc: number, a) => acc + (a.totalHours || 0), 0);
-    const completedShifts = biweeklyAttendances.filter((a) => a.clockOutTime).length;
+    const biweeklyAttendances = employee.attendances.filter((a: Attendance) => a.clockInTime >= fourteenDaysAgo);
+    const monthlyAttendances = employee.attendances.filter((a: Attendance) => a.clockInTime >= startOfMonthDate);
+
+    const totalBiweeklyHours = biweeklyAttendances.reduce((acc: number, a: Attendance) => acc + (a.totalHours || 0), 0);
+    const totalMonthlyHours = monthlyAttendances.reduce((acc: number, a: Attendance) => acc + (a.totalHours || 0), 0);
+
+    const completedShifts = biweeklyAttendances.filter((a: Attendance) => a.clockOutTime).length;
     const avgHoursPerShift = completedShifts > 0 ? totalBiweeklyHours / completedShifts : 0;
 
     // 30-day trend
@@ -209,7 +228,7 @@ export async function getEmployeeStats(id: string) {
         const date = subDays(startOfDay(now), i);
         const dateStr = format(date, 'yyyy-MM-dd');
 
-        const dayAttendance = employee.attendances.find((a) =>
+        const dayAttendance = employee.attendances.find((a: Attendance) =>
             format(a.clockInTime, 'yyyy-MM-dd') === dateStr
         );
 
@@ -226,6 +245,7 @@ export async function getEmployeeStats(id: string) {
         },
         stats: {
             totalBiweeklyHours: parseFloat(totalBiweeklyHours.toFixed(2)),
+            totalMonthlyHours: parseFloat(totalMonthlyHours.toFixed(2)),
             avgHoursPerShift: parseFloat(avgHoursPerShift.toFixed(2)),
             totalShifts: completedShifts,
             status: employee.attendances[0] && !employee.attendances[0].clockOutTime ? 'CLOCKED_IN' : 'CLOCKED_OUT',

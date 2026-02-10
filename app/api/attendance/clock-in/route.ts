@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { findEmployee } from '@/lib/attendance-logic';
+import fs from 'fs';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -43,6 +44,7 @@ export async function POST(request: Request) {
 
         return NextResponse.json(attendance);
     } catch (error: any) {
+        fs.appendFileSync('api-debug.log', `Clock-in error: ${error.message}\n${error.stack}\n`);
         console.error('Clock-in error:', error);
         return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
     }

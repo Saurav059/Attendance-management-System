@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
-import { Users, Clock, UserCheck, UserX, LogOut, Plus, DollarSign, Settings } from 'lucide-react';
+import { Users, Clock, UserCheck, UserX, LogOut, Plus, DollarSign, Settings, Activity, Calendar, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format } from 'date-fns';
@@ -31,6 +31,29 @@ export default function DashboardClient({
     const [showAddModal, setShowAddModal] = useState(false);
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
     const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+    const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+    const [filterTab, setFilterTab] = useState<'all' | 'present' | 'absent' | 'clocked-in'>('all');
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const contentRef = useRef<HTMLDivElement>(null);
+
+    // Reset scroll when view changes
+    useEffect(() => {
+        if (contentRef.current) {
+            contentRef.current.scrollTo(0, 0);
+        }
+    }, [activeView, selectedEmployeeId]);
+
+    const fetchStats = async (date: string) => {
+        setLoading(true);
+        try {
+            const res = await axios.get(`/api/reports/dashboard-stats?date=${date}`);
+            setStats(res.data);
+        } catch (err) {
+            console.error('Failed to fetch stats:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const logout = async () => {
         await axios.post('/api/auth/logout');
@@ -63,114 +86,147 @@ export default function DashboardClient({
         }
     };
 
-    const StatCard = ({ title, value, icon: Icon, color }: any) => (
+    const handleManualClockIn = async (empId: string) => {
+        setActionLoading(empId);
+        try {
+            await axios.post('/api/attendance/clock-in', { identifier: empId, location: 'Admin Manual Entry' });
+            await fetchStats(selectedDate);
+        } catch (err: any) {
+            alert(err.response?.data?.message || 'Failed to clock in');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const handleManualClockOut = async (empId: string) => {
+        setActionLoading(empId);
+        try {
+            await axios.post('/api/attendance/clock-out', { identifier: empId, location: 'Admin Manual Entry' });
+            await fetchStats(selectedDate);
+        } catch (err: any) {
+            alert(err.response?.data?.message || 'Failed to clock out');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const StatCard = ({ title, value, icon: Icon, color, onClick }: any) => (
         <motion.div
+            whileHover={{ y: -5, scale: 1.02 }}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white/5 backdrop-blur-xl p-6 rounded-2xl border border-white/10"
+            onClick={onClick}
+            className={`glass-card p-8 rounded-[2rem] relative group/card cursor-pointer border-t-2 ${color === 'bg-blue-500' ? 'border-blue-500/50' :
+                color === 'bg-green-500' ? 'border-green-500/50' :
+                    color === 'bg-red-500' ? 'border-rose-500/50' : 'border-orange-500/50'
+                }`}
         >
             <div className="flex justify-between items-start">
                 <div>
-                    <p className="text-slate-400 text-xs md:text-sm mb-1">{title}</p>
-                    <h3 className="text-2xl md:text-3xl font-bold text-white">{value || 0}</h3>
+                    <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-2 group-hover/card:text-white transition-colors">
+                        {title}
+                    </p>
+                    <h3 className="text-3xl md:text-4xl font-black text-white tracking-tight">
+                        {value || 0}
+                    </h3>
                 </div>
-                <div className={`p-3 rounded-lg ${color} bg-opacity-20`}>
+                <div className={`p-4 rounded-2xl ${color} bg-opacity-10 group-hover/card:bg-opacity-20 transition-all duration-300`}>
                     <Icon className={`w-6 h-6 ${color.replace('bg-', 'text-')}`} />
                 </div>
             </div>
+            <div className={`absolute bottom-6 right-8 w-1 h-1 rounded-full ${color.replace('bg-', 'bg-')} blur-sm group-hover/card:scale-[10] transition-transform duration-500 opacity-20`}></div>
         </motion.div>
     );
 
     return (
-        <div className="min-h-screen bg-slate-900 flex">
+        <div className="min-h-screen mesh-gradient flex relative overflow-hidden">
+            {/* Background Orbs */}
+            <div className="absolute top-[-10%] right-[-5%] w-[50%] h-[50%] bg-blue-600/10 blur-[120px] rounded-full animate-float pointer-events-none"></div>
+            <div className="absolute bottom-[-10%] left-[-5%] w-[50%] h-[50%] bg-purple-600/5 blur-[120px] rounded-full animate-float pointer-events-none" style={{ animationDelay: '-3s' }}></div>
+
             {/* Sidebar */}
-            <div className="w-64 bg-slate-800/50 backdrop-blur-xl border-r border-white/5 p-6 flex flex-col hidden md:flex">
-                <h1 className="text-2xl font-bold text-white mb-10">HR Admin</h1>
+            <div className="w-72 bg-slate-900/40 backdrop-blur-2xl border-r border-white/5 p-8 flex flex-col hidden lg:flex relative z-10">
+                <div className="flex items-center gap-3 mb-12">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                        <UserCheck className="w-6 h-6 text-white" />
+                    </div>
+                    <h1 className="text-xl font-black text-white tracking-tight">ADMIN DASHBOARD</h1>
+                </div>
+
                 <nav className="flex-1 space-y-2">
-                    <button
-                        onClick={() => { setActiveView('overview'); setSelectedEmployeeId(null); }}
-                        className={`w-full text-left px-4 py-3 rounded-lg font-medium flex items-center gap-3 transition-all cursor-pointer ${activeView === 'overview' && !selectedEmployeeId
-                            ? 'bg-blue-600/20 text-blue-400'
-                            : 'text-slate-400 hover:bg-white/5'
-                            }`}
-                    >
-                        <Clock className="w-5 h-5" />
-                        Dashboard
-                    </button>
-                    <button
-                        onClick={() => { setActiveView('employees'); setSelectedEmployeeId(null); }}
-                        className={`w-full text-left px-4 py-3 rounded-lg font-medium flex items-center gap-3 transition-all cursor-pointer ${activeView === 'employees' && !selectedEmployeeId
-                            ? 'bg-blue-600/20 text-blue-400'
-                            : 'text-slate-400 hover:bg-white/5'
-                            }`}
-                    >
-                        <Users className="w-5 h-5" />
-                        Employees
-                    </button>
-                    <button
-                        onClick={() => { setActiveView('payroll'); setSelectedEmployeeId(null); }}
-                        className={`w-full text-left px-4 py-3 rounded-lg font-medium flex items-center gap-3 transition-all cursor-pointer ${activeView === 'payroll'
-                            ? 'bg-blue-600/20 text-blue-400'
-                            : 'text-slate-400 hover:bg-white/5'
-                            }`}
-                    >
-                        <DollarSign className="w-5 h-5" />
-                        Payroll
-                    </button>
-                    <button
-                        onClick={() => { setActiveView('settings'); setSelectedEmployeeId(null); }}
-                        className={`w-full text-left px-4 py-3 rounded-lg font-medium flex items-center gap-3 transition-all cursor-pointer ${activeView === 'settings'
-                            ? 'bg-blue-600/20 text-blue-400'
-                            : 'text-slate-400 hover:bg-white/5'
-                            }`}
-                    >
-                        <Settings className="w-5 h-5" />
-                        Settings
-                    </button>
+                    {[
+                        { id: 'overview', label: 'Dashboard', icon: Clock },
+                        { id: 'employees', label: 'Employees', icon: Users },
+                        { id: 'payroll', label: 'Payroll', icon: DollarSign },
+                        { id: 'settings', label: 'Settings', icon: Settings },
+                    ].map((item) => (
+                        <button
+                            key={item.id}
+                            onClick={() => { setActiveView(item.id as any); setSelectedEmployeeId(null); }}
+                            className={`w-full text-left px-5 py-3.5 rounded-2xl font-semibold flex items-center gap-4 transition-all duration-300 group ${activeView === item.id && !selectedEmployeeId
+                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 scale-[1.02]'
+                                : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                                }`}
+                        >
+                            <item.icon className={`w-5 h-5 transition-transform duration-300 ${activeView === item.id && !selectedEmployeeId ? '' : 'group-hover:scale-110'}`} />
+                            {item.label}
+                        </button>
+                    ))}
                 </nav>
 
-                <div className="border-t border-white/5 pt-6">
-                    <div className="flex items-center gap-3 mb-6 px-4">
-                        <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">
-                            {userEmail?.[0].toUpperCase()}
+                <div className="mt-auto pt-8 border-t border-white/5 space-y-6">
+                    <div className="flex items-center gap-4 px-2">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center border border-white/10 shadow-inner">
+                            <span className="text-lg font-bold text-white">{userEmail?.[0].toUpperCase()}</span>
                         </div>
                         <div className="overflow-hidden">
-                            <p className="text-sm font-medium text-white truncate">{userEmail}</p>
-                            <p className="text-xs text-slate-400">Administrator</p>
+                            <p className="text-sm font-bold text-white truncate">{userEmail}</p>
+                            <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Administrator</p>
                         </div>
                     </div>
-                    <button onClick={logout} className="w-full px-4 py-2 text-red-400 hover:bg-red-500/10 rounded-lg text-sm flex items-center gap-2 transition-colors cursor-pointer">
-                        <LogOut className="w-4 h-4" />
+
+                    <button
+                        onClick={logout}
+                        className="w-full px-5 py-3.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-2xl text-sm font-bold flex items-center gap-3 transition-all group cursor-pointer"
+                    >
+                        <LogOut className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                         Sign Out
                     </button>
                 </div>
             </div>
 
             {/* Main Content */}
-            <div className="flex-1 p-4 pb-24 md:p-8 overflow-y-auto">
-                <header className="flex justify-between items-center mb-6 md:mb-8">
+            <div ref={contentRef} className="flex-1 overflow-y-auto relative z-10 custom-scrollbar">
+                <header className="sticky top-0 z-30 bg-slate-900/40 backdrop-blur-md border-b border-white/5 py-8 px-6 md:px-12 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div>
-                        <h2 className="text-xl md:text-2xl font-bold text-white">
+                        <h2 className="text-3xl md:text-5xl font-black text-white tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-white to-white/40">
                             {selectedEmployeeId ? 'Employee Profile' :
-                                activeView === 'overview' ? 'Dashboard Overview' :
-                                    activeView === 'employees' ? 'Employee Management' :
-                                        activeView === 'payroll' ? 'Payroll Management' : 'HR Settings'}
+                                activeView === 'overview' ? 'Dashboard' :
+                                    activeView === 'employees' ? 'Employees' :
+                                        activeView === 'payroll' ? 'Payroll' : 'Settings'}
                         </h2>
+                        <p className="text-slate-400 font-medium mt-2">
+                            {activeView === 'overview' ? 'View attendance trends and stats' :
+                                activeView === 'employees' ? 'Manage your employees and profiles' :
+                                    activeView === 'payroll' ? 'Track earnings and history' :
+                                        'Manage your account settings'}
+                        </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4">
                         {activeView === 'employees' && !selectedEmployeeId && (
-                            <button
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
                                 onClick={() => setShowAddModal(true)}
-                                className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg flex items-center gap-2 transition-colors shadow-lg shadow-blue-600/20 cursor-pointer text-sm"
+                                className="bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white px-6 py-3 rounded-2xl flex items-center gap-3 transition-all shadow-xl shadow-blue-500/20 cursor-pointer text-sm font-bold"
                             >
-                                <Plus className="w-4 h-4" />
-                                <span className="hidden md:inline">Add Employee</span>
-                                <span className="md:hidden">Add</span>
-                            </button>
+                                <Plus className="w-5 h-5" />
+                                <span>Add Employee</span>
+                            </motion.button>
                         )}
                         <button
                             onClick={logout}
-                            className="md:hidden p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                            className="lg:hidden p-3 bg-white/5 border border-white/10 text-rose-400 rounded-2xl transition-all"
                             aria-label="Sign Out"
                         >
                             <LogOut className="w-5 h-5" />
@@ -178,296 +234,525 @@ export default function DashboardClient({
                     </div>
                 </header>
 
-                {selectedEmployeeId ? (
-                    <EmployeeProfile
-                        employeeId={selectedEmployeeId}
-                        onBack={() => setSelectedEmployeeId(null)}
-                    />
-                ) : activeView === 'overview' ? (
-                    <div className="space-y-8">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                            <StatCard title="Total Employees" value={stats?.totalEmployees} icon={Users} color="bg-blue-500" />
-                            <StatCard title="Present Today" value={stats?.present} icon={UserCheck} color="bg-green-500" />
-                            <StatCard title="Absent" value={stats?.absent} icon={UserX} color="bg-red-500" />
-                            <StatCard title="Active Clock-ins" value={stats?.activeClockIns} icon={Clock} color="bg-orange-500" />
-                        </div>
+                <div className="p-6 md:p-12 pt-10">
 
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            <div className="lg:col-span-2 bg-slate-800/50 border border-white/5 rounded-2xl p-6">
-                                <h3 className="text-lg font-bold text-white mb-6">Biweekly Attendance Trends</h3>
-                                <div className="h-[300px] w-full">
-                                    <ResponsiveContainer width="99%" height="100%">
-                                        <LineChart data={stats?.chartData || []}>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                                            <XAxis
-                                                dataKey="date"
-                                                stroke="#94a3b8"
-                                                tickFormatter={(str) => {
-                                                    try {
-                                                        return format(new Date(str), 'MM/dd');
-                                                    } catch {
-                                                        return str;
-                                                    }
-                                                }}
-                                            />
-                                            <YAxis stroke="#94a3b8" />
-                                            <Tooltip
-                                                contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }}
-                                                itemStyle={{ color: '#fff' }}
-                                            />
-                                            <Line
-                                                type="monotone"
-                                                dataKey="present"
-                                                stroke="#3b82f6"
-                                                strokeWidth={3}
-                                                dot={{ r: 4, fill: '#3b82f6' }}
-                                                activeDot={{ r: 6 }}
-                                            />
-                                        </LineChart>
-                                    </ResponsiveContainer>
-                                </div>
+                    {selectedEmployeeId ? (
+                        <EmployeeProfile
+                            employeeId={selectedEmployeeId}
+                            onBack={() => setSelectedEmployeeId(null)}
+                        />
+                    ) : activeView === 'overview' ? (
+                        <div className="space-y-10">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                                <StatCard title="Total Employees" value={stats?.totalEmployees} icon={Users} color="bg-blue-500" />
+                                <StatCard
+                                    title="Present Today"
+                                    value={stats?.present}
+                                    icon={UserCheck}
+                                    color="bg-green-500"
+                                    onClick={() => { setFilterTab('present'); const el = document.getElementById('status-report'); el?.scrollIntoView({ behavior: 'smooth' }); }}
+                                />
+                                <StatCard
+                                    title="Absent"
+                                    value={stats?.absent}
+                                    icon={UserX}
+                                    color="bg-red-500"
+                                    onClick={() => { setFilterTab('absent'); const el = document.getElementById('status-report'); el?.scrollIntoView({ behavior: 'smooth' }); }}
+                                />
+                                <StatCard
+                                    title="Active Clock-ins"
+                                    value={stats?.activeClockIns}
+                                    icon={Clock}
+                                    color="bg-orange-500"
+                                    onClick={() => { setFilterTab('clocked-in'); const el = document.getElementById('status-report'); el?.scrollIntoView({ behavior: 'smooth' }); }}
+                                />
                             </div>
 
-                            <div className="bg-slate-800/50 border border-white/5 rounded-2xl p-6">
-                                <h3 className="text-lg font-bold text-white mb-6">Recent Activity</h3>
-                                <div className="space-y-4 overflow-y-auto custom-scrollbar h-[400px] pr-2">
-                                    {(!stats?.recentActivity || stats.recentActivity.length === 0) && (
-                                        <p className="text-slate-500 text-center py-4">No recent activity</p>
-                                    )}
-                                    {stats?.recentActivity?.map((record: any) => (
-                                        <div key={record.id} className="flex items-center gap-4 p-3 bg-white/5 border border-white/5 rounded-xl">
-                                            <div className={`p-2 rounded-lg ${!record.clockOutTime ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'}`}>
-                                                {!record.clockOutTime ? <Clock className="w-4 h-4" /> : <LogOut className="w-4 h-4" />}
-                                            </div>
-                                            <div>
-                                                <p className="text-white text-sm font-medium">
-                                                    {record.employee.name} clocked {record.clockOutTime ? 'OUT' : 'IN'}
-                                                </p>
-                                                <div className="flex items-center gap-2 mt-0.5">
-                                                    <p className="text-slate-400 text-xs text-slate-500">
-                                                        {format(new Date(record.clockOutTime || record.clockInTime), 'HH:mm')}
-                                                    </p>
-                                                    {(record.clockOutLocation || record.clockInLocation) && (
-                                                        <span className="text-slate-500 text-xs flex items-center gap-1">
-                                                            in {record.clockOutTime ? record.clockOutLocation : record.clockInLocation}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Daily Detailed Status Table */}
-                        <div className="bg-slate-800/50 border border-white/5 rounded-2xl overflow-hidden shadow-xl">
-                            <div className="p-6 border-b border-white/5">
-                                <h3 className="text-lg font-bold text-white">Daily Detailed Status</h3>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left">
-                                    <thead>
-                                        <tr className="bg-white/5">
-                                            <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Employee</th>
-                                            <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Clock In</th>
-                                            <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Start Loc</th>
-                                            <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Clock Out</th>
-                                            <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Total Hours</th>
-                                            <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-white/5">
-                                        {stats?.dailyDetails?.map((detail: any) => (
-                                            <tr key={detail.id} className="hover:bg-white/5 transition-colors">
-                                                <td className="px-6 py-4 text-sm text-white font-medium">{detail.name}</td>
-                                                <td className="px-6 py-4">
-                                                    {detail.clockIn ? (
-                                                        <span className="text-sm font-mono text-green-400">
-                                                            {format(new Date(detail.clockIn), 'HH:mm:ss')}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-xs text-slate-500">—</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4 text-xs text-slate-400">
-                                                    {detail.clockInLocation || '—'}
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    {detail.clockOut ? (
-                                                        <span className="text-sm font-mono text-red-400">
-                                                            {format(new Date(detail.clockOut), 'HH:mm:ss')}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-xs text-slate-500">—</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4 text-right">
-                                                    <span className="text-sm font-mono text-blue-400 bg-blue-500/10 px-2 py-1 rounded">
-                                                        {detail.totalHours.toFixed(2)}h
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <span className={`px-2 py-1 rounded text-[10px] font-bold ${detail.status === 'COMPLETED' ? 'bg-green-500/10 text-green-400' :
-                                                        detail.status === 'CLOCKED_IN' ? 'bg-blue-500/10 text-blue-400' :
-                                                            'bg-red-500/10 text-red-400'
-                                                        }`}>
-                                                        {detail.status}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                ) : activeView === 'employees' ? (
-                    <div className="space-y-4">
-                        {/* Desktop Table View */}
-                        <div className="hidden md:block bg-slate-800/50 border border-white/5 rounded-2xl overflow-hidden">
-                            <table className="w-full text-left">
-                                <thead>
-                                    <tr className="border-b border-white/5 bg-white/5">
-                                        <th className="px-6 py-4 text-sm font-medium text-slate-400 uppercase tracking-widest">Employee ID</th>
-                                        <th className="px-6 py-4 text-sm font-medium text-slate-400 uppercase tracking-widest">Name</th>
-                                        <th className="px-6 py-4 text-sm font-medium text-slate-400 uppercase tracking-widest">Role</th>
-                                        <th className="px-6 py-4 text-sm font-medium text-slate-400 text-right uppercase tracking-widest">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-white/5">
-                                    {employees.map((emp) => (
-                                        <tr
-                                            key={emp.id}
-                                            className="hover:bg-white/5 transition-colors group cursor-pointer"
-                                            onClick={() => setSelectedEmployeeId(emp.id)}
-                                        >
-                                            <td className="px-6 py-4 font-mono text-blue-400 text-sm">{emp.employeeId}</td>
-                                            <td className="px-6 py-4 text-white font-medium">{emp.name}</td>
-                                            <td className="px-6 py-4">
-                                                <span className="px-2 py-1 bg-blue-500/10 text-blue-400 rounded-md text-xs font-medium border border-blue-500/20">
-                                                    {emp.role}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDeleteEmployee(emp.id);
+                            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                                <div className="xl:col-span-2 glass-card rounded-[2.5rem] p-10 relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+                                        <Activity className="w-24 h-24 text-blue-500" />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-white mb-8 flex items-center gap-3">
+                                        <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+                                        Attendance Chart
+                                    </h3>
+                                    <div className="h-[350px] w-full">
+                                        <ResponsiveContainer width="99%" height="100%">
+                                            <LineChart data={stats?.chartData || []}>
+                                                <defs>
+                                                    <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                                                    </linearGradient>
+                                                </defs>
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
+                                                <XAxis
+                                                    dataKey="date"
+                                                    stroke="#475569"
+                                                    fontSize={12}
+                                                    fontWeight={600}
+                                                    tickLine={false}
+                                                    axisLine={false}
+                                                    dy={10}
+                                                    tickFormatter={(str) => {
+                                                        try {
+                                                            return format(new Date(str), 'MMM d');
+                                                        } catch {
+                                                            return str;
+                                                        }
                                                     }}
-                                                    disabled={isDeleting === emp.id}
-                                                    className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-all text-sm font-medium cursor-pointer"
-                                                >
-                                                    {isDeleting === emp.id ? 'Deleting...' : 'Remove'}
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {/* Mobile Card View */}
-                        <div className="md:hidden space-y-3 pb-20">
-                            {employees.map((emp) => (
-                                <div
-                                    key={emp.id}
-                                    className="bg-slate-800/50 p-4 rounded-xl border border-white/5 active:scale-[0.98] transition-transform"
-                                    onClick={() => setSelectedEmployeeId(emp.id)}
-                                >
-                                    <div className="flex justify-between items-start mb-3">
-                                        <div>
-                                            <h4 className="text-white font-medium text-base">{emp.name}</h4>
-                                            <p className="text-blue-400 text-xs font-mono bg-blue-500/10 px-2 py-0.5 rounded inline-block mt-1">
-                                                {emp.employeeId}
-                                            </p>
-                                        </div>
-                                        <span className="px-2 py-1 bg-slate-700/50 text-slate-300 rounded-md text-[10px] font-medium border border-white/5 uppercase tracking-wider">
-                                            {emp.role}
-                                        </span>
+                                                />
+                                                <YAxis stroke="#475569" fontSize={12} fontWeight={600} tickLine={false} axisLine={false} />
+                                                <Tooltip
+                                                    contentStyle={{
+                                                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                                                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                        borderRadius: '16px',
+                                                        backdropFilter: 'blur(10px)',
+                                                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)'
+                                                    }}
+                                                    itemStyle={{ color: '#60a5fa', fontWeight: 700 }}
+                                                />
+                                                <Line
+                                                    type="monotone"
+                                                    dataKey="present"
+                                                    stroke="#3b82f6"
+                                                    strokeWidth={4}
+                                                    dot={{ r: 6, fill: '#3b82f6', strokeWidth: 2, stroke: '#0f172a' }}
+                                                    activeDot={{ r: 8, strokeWidth: 0 }}
+                                                />
+                                            </LineChart>
+                                        </ResponsiveContainer>
                                     </div>
+                                </div>
 
-                                    <div className="grid grid-cols-2 gap-4 pt-3 border-t border-white/5">
-                                        <div>
-                                            <span className="block text-slate-500 text-[10px] uppercase tracking-wider mb-1">Max Hours/Week</span>
-                                            <span className="text-slate-300 text-sm">{emp.maxHoursPerWeek || 40}h</span>
-                                        </div>
-                                        <div className="text-right flex flex-col items-end">
-                                            <span className="block text-slate-500 text-[10px] uppercase tracking-wider mb-1">Action</span>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDeleteEmployee(emp.id);
-                                                }}
-                                                disabled={isDeleting === emp.id}
-                                                className="text-red-400 text-sm font-medium active:text-red-300 py-1"
+                                <div className="glass-card rounded-[2.5rem] p-10 flex flex-col">
+                                    <h3 className="text-xl font-bold text-white mb-8 flex items-center gap-3">
+                                        <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+                                        Recent Activity
+                                    </h3>
+                                    <div className="space-y-5 overflow-y-auto custom-scrollbar flex-1 pr-2">
+                                        {(!stats?.recentActivity || stats.recentActivity.length === 0) && (
+                                            <div className="h-full flex flex-col items-center justify-center text-slate-500 gap-4 opacity-50">
+                                                <Clock className="w-12 h-12" />
+                                                <p className="font-medium">No activity recorded today</p>
+                                            </div>
+                                        )}
+                                        {stats?.recentActivity?.map((record: any) => (
+                                            <motion.div
+                                                initial={{ opacity: 0, x: 10 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                key={record.id}
+                                                className="flex items-center gap-4 p-4 bg-white/5 border border-white/5 rounded-[1.25rem] group/item hover:bg-white/10 transition-all duration-300"
                                             >
-                                                {isDeleting === emp.id ? 'Deleting...' : 'Remove User'}
-                                            </button>
+                                                <div className={`p-3 rounded-xl transition-transform group-hover/item:scale-110 ${!record.clockOutTime ? 'bg-emerald-500/10 text-emerald-400' : 'bg-blue-500/10 text-blue-400'}`}>
+                                                    {!record.clockOutTime ? <Clock className="w-5 h-5" /> : <LogOut className="w-5 h-5" />}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-white text-sm font-bold truncate group-hover/item:text-blue-400 transition-colors">
+                                                        {record.employee.name}
+                                                    </p>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <span className="text-slate-400 text-xs font-semibold">
+                                                            {format(new Date(record.clockOutTime || record.clockInTime), 'hh:mm a')}
+                                                        </span>
+                                                        {(record.clockOutLocation || record.clockInLocation) && (
+                                                            <span className="text-slate-500 text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
+                                                                • {record.clockOutTime ? record.clockOutLocation : record.clockInLocation}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 opacity-0 group-hover/item:opacity-100 transition-opacity"></div>
+                                            </motion.div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Daily Detailed Status Table */}
+                            <div id="status-report" className="glass-card rounded-[2.5rem] overflow-hidden group">
+                                <div className="p-8 border-b border-white/5 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
+                                    <div className="flex flex-col md:flex-row items-start md:items-center gap-6 w-full xl:w-auto">
+                                        <h3 className="text-xl font-bold text-white flex items-center gap-3 whitespace-nowrap">
+                                            <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                            Attendance List
+                                        </h3>
+                                        <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
+                                            {[
+                                                { id: 'all', label: 'All', count: stats?.totalEmployees },
+                                                { id: 'present', label: 'Present', count: stats?.present },
+                                                { id: 'absent', label: 'Absent', count: stats?.absent },
+                                                { id: 'clocked-in', label: 'Clocked In', count: stats?.activeClockIns }
+                                            ].map((tab) => (
+                                                <button
+                                                    key={tab.id}
+                                                    onClick={() => setFilterTab(tab.id as any)}
+                                                    className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${filterTab === tab.id
+                                                        ? 'bg-blue-600 text-white shadow-lg'
+                                                        : 'text-slate-500 hover:text-white hover:bg-white/5'
+                                                        }`}
+                                                >
+                                                    {tab.label} ({tab.count || 0})
+                                                </button>
+                                            ))}
                                         </div>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                ) : activeView === 'payroll' ? (
-                    <div className="space-y-8">
-                        {initialPayrollData.map((period: any, idx: number) => (
-                            <div key={idx} className="bg-slate-800/50 border border-white/5 rounded-2xl overflow-hidden shadow-xl">
-                                <div className="p-6 border-b border-white/5 bg-white/5 flex justify-between items-center">
-                                    <div>
-                                        <h3 className="text-lg font-bold text-white">Payroll Period</h3>
-                                        <p className="text-sm text-slate-400">{period.period}</p>
+                                    <div className="flex items-center gap-3 bg-white/5 p-2 rounded-2xl border border-white/10 group-hover:border-white/20 transition-colors">
+                                        <Calendar className="w-4 h-4 text-slate-400 ml-2" />
+                                        <input
+                                            type="date"
+                                            value={selectedDate}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                                setSelectedDate(e.target.value);
+                                                fetchStats(e.target.value);
+                                            }}
+                                            className="bg-transparent text-white text-sm font-bold px-3 py-1 outline-none border-none [color-scheme:dark]"
+                                        />
                                     </div>
                                 </div>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left">
+                                <div className="overflow-x-auto custom-scrollbar">
+                                    <table className="w-full text-left border-collapse">
                                         <thead>
-                                            <tr className="bg-slate-900/30">
-                                                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Employee</th>
-                                                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Hours</th>
-                                                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Amount</th>
+                                            <tr className="bg-white/5">
+                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Employee</th>
+                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>
+                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">In</th>
+                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Location</th>
+                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Hours</th>
+                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Status</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-white/5">
-                                            {period.employees.map((emp: any) => (
-                                                <tr key={emp.employeeId} className="hover:bg-white/5 transition-colors">
-                                                    <td className="px-6 py-4 font-medium text-white">{emp.name}</td>
-                                                    <td className="px-6 py-4 text-right text-slate-300">{emp.hours}h</td>
-                                                    <td className="px-6 py-4 text-right font-bold text-white">${emp.amount.toLocaleString()}</td>
+                                            {stats?.dailyDetails?.filter((detail: any) => {
+                                                if (filterTab === 'all') return true;
+                                                if (filterTab === 'present') return detail.status === 'COMPLETED' || detail.status === 'CLOCKED_IN';
+                                                if (filterTab === 'absent') return detail.status === 'ABSENT';
+                                                if (filterTab === 'clocked-in') return detail.status === 'CLOCKED_IN';
+                                                return true;
+                                            }).map((detail: any) => (
+                                                <tr key={detail.id} className="hover:bg-white/5 transition-colors group/row">
+                                                    <td className="px-8 py-6">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 font-bold text-xs font-black">
+                                                                {detail.name[0]}
+                                                            </div>
+                                                            <div className="flex flex-col">
+                                                                <span className="text-sm text-white font-bold">{detail.name}</span>
+                                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{detail.employeeId}</span>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-8 py-6 text-right">
+                                                        <div className="flex justify-end gap-2">
+                                                            {detail.status === 'ABSENT' && (
+                                                                <button
+                                                                    onClick={() => handleManualClockIn(detail.employeeId)}
+                                                                    disabled={actionLoading === detail.employeeId}
+                                                                    className="px-4 py-2 bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white border border-blue-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
+                                                                >
+                                                                    {actionLoading === detail.employeeId ? 'Processing...' : 'Manual In'}
+                                                                </button>
+                                                            )}
+                                                            {detail.status === 'CLOCKED_IN' && (
+                                                                <button
+                                                                    onClick={() => handleManualClockOut(detail.employeeId)}
+                                                                    disabled={actionLoading === detail.employeeId}
+                                                                    className="px-4 py-2 bg-rose-600/10 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
+                                                                >
+                                                                    {actionLoading === detail.employeeId ? 'Processing...' : 'Manual Out'}
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-8 py-6">
+                                                        {detail.clockIn ? (
+                                                            <div className="flex flex-col">
+                                                                <span className="text-sm font-black text-emerald-400 tabular-nums">
+                                                                    {format(new Date(detail.clockIn), 'HH:mm:ss')}
+                                                                </span>
+                                                                <span className="text-[10px] font-bold text-slate-500 uppercase">
+                                                                    {format(new Date(detail.clockIn), 'aaa')}
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-xs font-bold text-slate-600 tracking-widest">PENDING</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-8 py-6">
+                                                        <div className="flex items-center gap-2">
+                                                            <MapPin className="w-3 h-3 text-slate-500" />
+                                                            <span className="text-xs font-black text-slate-400 uppercase tracking-tight">
+                                                                {detail.clockInLocation || 'UNSPECIFIED'}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-8 py-6 text-right">
+                                                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-black bg-blue-500/10 text-blue-400 border border-blue-500/20 tabular-nums">
+                                                            {(detail.totalHours || 0).toFixed(2)}H
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-8 py-6">
+                                                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black tracking-widest border ${detail.status === 'COMPLETED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                                                            detail.status === 'CLOCKED_IN' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20 animate-pulse' :
+                                                                'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                                                            }`}>
+                                                            {detail.status}
+                                                        </span>
+                                                    </td>
                                                 </tr>
                                             ))}
                                         </tbody>
                                     </table>
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                ) : activeView === 'settings' ? (
-                    <div className="max-w-md mx-auto">
-                        <HRSettingsForm userEmail={userEmail} />
-                    </div>
-                ) : null}
+                        </div>
+                    ) : activeView === 'employees' ? (
+                        <div className="space-y-10">
+                            {/* Attendance Chart for Employees */}
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="glass-card p-10 rounded-[2.5rem] group"
+                            >
+                                <div className="flex justify-between items-center mb-10">
+                                    <div>
+                                        <h3 className="text-xl font-bold text-white mb-1">Attendance Trend</h3>
+                                        <p className="text-slate-400 text-xs font-medium uppercase tracking-widest">Last 14 Days</p>
+                                    </div>
+                                    <div className="p-3 rounded-2xl bg-blue-500/10 text-blue-400">
+                                        <Activity className="w-5 h-5" />
+                                    </div>
+                                </div>
+                                <div className="h-64">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart data={stats?.chartData || []}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
+                                            <XAxis
+                                                dataKey="date"
+                                                stroke="#475569"
+                                                fontSize={11}
+                                                fontWeight={600}
+                                                tickLine={false}
+                                                axisLine={false}
+                                                tickFormatter={(str: string) => format(new Date(str), 'MMM d')}
+                                            />
+                                            <YAxis stroke="#475569" fontSize={11} fontWeight={600} tickLine={false} axisLine={false} />
+                                            <Tooltip
+                                                contentStyle={{
+                                                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                    borderRadius: '16px',
+                                                    backdropFilter: 'blur(10px)'
+                                                }}
+                                            />
+                                            <Line
+                                                type="monotone"
+                                                dataKey="present"
+                                                stroke="#3b82f6"
+                                                strokeWidth={3}
+                                                dot={{ fill: '#3b82f6', r: 4, strokeWidth: 2, stroke: '#0f172a' }}
+                                                activeDot={{ r: 6, strokeWidth: 0 }}
+                                            />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </motion.div>
+
+                            {/* Desktop Table View */}
+                            <div className="hidden lg:block glass-card rounded-[2.5rem] overflow-hidden">
+                                <table className="w-full text-left">
+                                    <thead>
+                                        <tr className="bg-white/5">
+                                            <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">ID</th>
+                                            <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Name</th>
+                                            <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Role</th>
+                                            <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {employees.map((emp) => (
+                                            <tr
+                                                key={emp.id}
+                                                className="hover:bg-white/5 transition-all group/row cursor-pointer"
+                                                onClick={() => setSelectedEmployeeId(emp.id)}
+                                            >
+                                                <td className="px-8 py-6">
+                                                    <span className="text-sm font-black text-blue-400 tracking-wider tabular-nums">
+                                                        {emp.employeeId}
+                                                    </span>
+                                                </td>
+                                                <td className="px-8 py-6">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-white font-bold group-hover/row:from-blue-600 group-hover/row:to-blue-700 transition-all duration-300 shadow-lg">
+                                                            {emp.name[0]}
+                                                        </div>
+                                                        <span className="text-base text-white font-bold group-hover/row:text-blue-400 transition-colors uppercase tracking-tight">{emp.name}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-8 py-6">
+                                                    <span className="px-4 py-1.5 bg-blue-500/10 text-blue-400 rounded-full text-[10px] font-black tracking-widest border border-blue-500/20 uppercase">
+                                                        {emp.role}
+                                                    </span>
+                                                </td>
+                                                <td className="px-8 py-6 text-right">
+                                                    <button
+                                                        onClick={(e: React.MouseEvent) => {
+                                                            e.stopPropagation();
+                                                            handleDeleteEmployee(emp.id);
+                                                        }}
+                                                        disabled={isDeleting === emp.id}
+                                                        className="opacity-0 group-hover/row:opacity-100 bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white px-4 py-2 rounded-xl transition-all text-xs font-black uppercase tracking-widest cursor-pointer border border-rose-500/20"
+                                                    >
+                                                        {isDeleting === emp.id ? 'Deleting...' : 'Delete'}
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Mobile Card View */}
+                            <div className="md:hidden space-y-3 pb-20">
+                                {employees.map((emp) => (
+                                    <div
+                                        key={emp.id}
+                                        className="bg-slate-800/50 p-4 rounded-xl border border-white/5 active:scale-[0.98] transition-transform"
+                                        onClick={() => setSelectedEmployeeId(emp.id)}
+                                    >
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div>
+                                                <h4 className="text-white font-medium text-base">{emp.name}</h4>
+                                                <p className="text-blue-400 text-xs font-mono bg-blue-500/10 px-2 py-0.5 rounded inline-block mt-1">
+                                                    {emp.employeeId}
+                                                </p>
+                                            </div>
+                                            <span className="px-2 py-1 bg-slate-700/50 text-slate-300 rounded-md text-[10px] font-medium border border-white/5 uppercase tracking-wider">
+                                                {emp.role}
+                                            </span>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4 pt-3 border-t border-white/5">
+                                            <div>
+                                                <span className="block text-slate-500 text-[10px] uppercase tracking-wider mb-1">Max Hours/Week</span>
+                                                <span className="text-slate-300 text-sm">{emp.maxHoursPerWeek || 40}h</span>
+                                            </div>
+                                            <div className="text-right flex flex-col items-end">
+                                                <span className="block text-slate-500 text-[10px] uppercase tracking-wider mb-1">Action</span>
+                                                <button
+                                                    onClick={(e: React.MouseEvent) => {
+                                                        e.stopPropagation();
+                                                        handleDeleteEmployee(emp.id);
+                                                    }}
+                                                    disabled={isDeleting === emp.id}
+                                                    className="text-red-400 text-sm font-medium active:text-red-300 py-1"
+                                                >
+                                                    {isDeleting === emp.id ? 'Deleting...' : 'Remove User'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ) : activeView === 'payroll' ? (
+                        <div className="space-y-10">
+                            {initialPayrollData.map((period: any, idx: number) => (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: idx * 0.1 }}
+                                    key={idx}
+                                    className="glass-card rounded-[2.5rem] overflow-hidden"
+                                >
+                                    <div className="p-8 border-b border-white/5 bg-white/5 flex justify-between items-center">
+                                        <div className="flex items-center gap-4">
+                                            <div className="p-3 rounded-2xl bg-blue-500/10 text-blue-400">
+                                                <DollarSign className="w-6 h-6" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xl font-bold text-white tracking-tight uppercase">{period.period}</h3>
+                                                <p className="text-sm font-semibold text-slate-400 uppercase tracking-widest mt-1">Payment summary</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Cycle Total</p>
+                                            <p className="text-2xl font-black text-emerald-400 tabular-nums">
+                                                ${period.employees.reduce((acc: number, e: any) => acc + e.amount, 0).toLocaleString()}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="overflow-x-auto custom-scrollbar">
+                                        <table className="w-full text-left">
+                                            <thead>
+                                                <tr className="bg-slate-900/30">
+                                                    <th className="px-10 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Employee</th>
+                                                    <th className="px-10 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Hours</th>
+                                                    <th className="px-10 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Amount</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-white/5">
+                                                {period.employees.map((emp: any) => (
+                                                    <tr key={emp.employeeId} className="hover:bg-white/5 transition-colors group/row">
+                                                        <td className="px-10 py-6">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 font-bold text-xs">
+                                                                    {emp.name[0]}
+                                                                </div>
+                                                                <span className="text-sm text-white font-bold">{emp.name}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-10 py-6 text-right">
+                                                            <span className="text-sm font-bold text-slate-300 tabular-nums">{emp.hours}H</span>
+                                                        </td>
+                                                        <td className="px-10 py-6 text-right">
+                                                            <span className="text-base font-black text-white tabular-nums">${emp.amount.toLocaleString()}</span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </motion.div>
+                            ))}
+                        </div>
+                    ) : activeView === 'settings' ? (
+                        <div className="max-w-md mx-auto">
+                            <HRSettingsForm userEmail={userEmail} />
+                        </div>
+                    ) : null}
+                </div>
             </div>
 
             {/* Add Modal */}
             <AnimatePresence>
                 {showAddModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
+                            className="absolute inset-0 bg-slate-950/90 backdrop-blur-md"
                             onClick={() => setShowAddModal(false)}
                         />
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            initial={{ opacity: 0, scale: 0.95, y: 30 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="relative bg-slate-800/90 border border-white/10 rounded-2xl w-full max-w-2xl p-8 shadow-2xl backdrop-blur-xl"
+                            exit={{ opacity: 0, scale: 0.9, y: 30 }}
+                            className="relative glass-card rounded-[3rem] w-full max-w-2xl p-10 shadow-2xl overflow-hidden"
                         >
-                            <h3 className="text-xl font-bold text-white mb-6">Add New Employee</h3>
+                            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-blue-500/50 to-transparent"></div>
+                            <div className="flex justify-between items-center mb-10">
+                                <div>
+                                    <h3 className="text-3xl font-black text-white tracking-tight">Add New Employee</h3>
+                                    <p className="text-slate-400 font-medium mt-1">Create a new employee record</p>
+                                </div>
+                                <div className="p-4 rounded-3xl bg-blue-500/10 text-blue-400">
+                                    <Users className="w-8 h-8" />
+                                </div>
+                            </div>
                             <AddEmployeeForm
                                 onSuccess={() => {
                                     setShowAddModal(false);
@@ -547,49 +832,65 @@ const HRSettingsForm = ({ userEmail }: { userEmail: string }) => {
         <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-slate-800/50 border border-white/5 p-8 rounded-2xl backdrop-blur-xl"
+            className="glass-card p-10 rounded-[2.5rem] relative overflow-hidden"
         >
-            <h3 className="text-xl font-bold text-white mb-6">HR Account Settings</h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                    <label className="block text-sm font-medium text-slate-400 mb-1">HR Email / Login ID</label>
+            <div className="absolute top-0 right-0 p-8 opacity-5">
+                <Settings className="w-24 h-24 text-white" />
+            </div>
+
+            <h3 className="text-2xl font-black text-white mb-10 tracking-tight">Account Settings</h3>
+
+            <form onSubmit={handleSubmit} className="space-y-8">
+                <div className="space-y-2">
+                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
                     <input
                         required
-                        className="w-full bg-slate-900 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full bg-slate-900/60 border border-white/10 rounded-2xl px-6 py-4 text-white font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
                         value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, email: e.target.value })}
                     />
                 </div>
-                <div className="pt-4 border-t border-white/5">
-                    <p className="text-xs text-slate-500 mb-4">Leave password fields empty to keep current password.</p>
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-400 mb-1">New Password</label>
+
+                <div className="pt-8 border-t border-white/5 space-y-6">
+                    <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-2xl">
+                        <p className="text-xs font-bold text-blue-400 leading-relaxed uppercase tracking-wide">Leave password fields empty to keep current password.</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-6">
+                        <div className="space-y-2">
+                            <label className="block text-sm font-black text-slate-400 uppercase tracking-widest ml-1">New Password</label>
                             <input
                                 type="password"
-                                className="w-full bg-slate-900 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full bg-slate-900/60 border border-white/10 rounded-2xl px-6 py-4 text-white font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
                                 value={formData.password}
-                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, password: e.target.value })}
+                                placeholder="••••••••"
                             />
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-400 mb-1">Confirm New Password</label>
+                        <div className="space-y-2">
+                            <label className="block text-sm font-black text-slate-400 uppercase tracking-widest ml-1">Confirm Password</label>
                             <input
                                 type="password"
-                                className="w-full bg-slate-900 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full bg-slate-900/60 border border-white/10 rounded-2xl px-6 py-4 text-white font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
                                 value={formData.confirmPassword}
-                                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                                placeholder="••••••••"
                             />
                         </div>
                     </div>
                 </div>
-                <button
+
+                <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     type="submit"
                     disabled={loading}
-                    className="w-full mt-6 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 cursor-pointer"
+                    className="w-full mt-4 px-8 py-5 bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-2xl font-black uppercase tracking-widest transition-all shadow-xl shadow-blue-500/20 disabled:opacity-50 cursor-pointer"
                 >
-                    {loading ? 'Saving...' : 'Save Changes'}
-                </button>
+                    {loading ? (
+                        <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto"></div>
+                    ) : 'Update Settings'}
+                </motion.button>
             </form>
         </motion.div>
     );

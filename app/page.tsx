@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, UserCheck, MapPin, Settings } from 'lucide-react';
+import { Clock, UserCheck, MapPin, Settings, User } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
 
@@ -19,136 +19,140 @@ export default function KioskPage() {
     return () => clearInterval(timer);
   }, []);
 
-  const getLocation = (): Promise<string | undefined> => {
-    return new Promise((resolve) => {
-      if (locationInput.trim()) {
-        resolve(locationInput.trim());
-        return;
-      }
-      if (!navigator.geolocation) {
-        resolve(undefined);
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          resolve(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-          resolve(undefined);
-        },
-        { timeout: 5000 }
-      );
-    });
+  const getLocation = (): string | undefined => {
+    return locationInput.trim() || undefined;
   };
 
   const handleClockIn = async () => {
     try {
-      const location = await getLocation();
+      const location = getLocation();
       await axios.post('/api/attendance/clock-in', { identifier: employeeId, location });
       setStatus('success');
-      setMessage(`Welcome, ${employeeId}! Clocked IN at ${format(new Date(), 'HH:mm')}`);
-      setTimeout(() => setStatus('idle'), 3000);
+      setMessage(`Welcome, ${employeeId}! Clocked IN at ${format(new Date(), 'hh:mm a')}`);
+      setTimeout(() => setStatus('idle'), 5000);
       setEmployeeId('');
       setLocationInput('');
     } catch (err: any) {
       setStatus('error');
       setMessage(err.response?.data?.message || 'Error clocking in');
-      setTimeout(() => setStatus('idle'), 3000);
+      setTimeout(() => setStatus('idle'), 5000);
     }
   };
 
   const handleClockOut = async () => {
     try {
-      const location = await getLocation();
+      const location = getLocation();
       const res = await axios.post('/api/attendance/clock-out', { identifier: employeeId, location });
       setStatus('success');
-      const hours = res.data.totalHours ? res.data.totalHours.toFixed(2) : 0;
-      setMessage(`Goodbye! Clocked OUT. Total hours: ${hours}`);
-      setTimeout(() => setStatus('idle'), 3000);
+      const hours = typeof res.data.totalHours === 'number' ? res.data.totalHours.toFixed(2) : '0.00';
+      setMessage(`Goodbye! Clocked OUT. Total hours: ${hours}h`);
+      setTimeout(() => setStatus('idle'), 5000);
       setEmployeeId('');
       setLocationInput('');
     } catch (err: any) {
       setStatus('error');
       setMessage(err.response?.data?.message || 'Error clocking out');
-      setTimeout(() => setStatus('idle'), 3000);
+      setTimeout(() => setStatus('idle'), 5000);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center relative overflow-hidden p-4">
-      {/* Background Particles (Simplified for now) */}
-      <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none"></div>
+    <div className="min-h-screen mesh-gradient text-white flex flex-col items-center justify-center relative overflow-hidden p-6">
+      {/* Decorative Orbs */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/20 blur-[120px] rounded-full animate-float"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-rose-600/10 blur-[120px] rounded-full animate-float" style={{ animationDelay: '-3s' }}></div>
 
-      <div className="z-10 text-center space-y-8 w-full max-w-md">
+      <div className="z-10 text-center space-y-10 w-full max-w-lg">
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white/5 backdrop-blur-xl p-8 rounded-2xl border border-white/10 shadow-2xl"
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="glass-card p-10 rounded-[2.5rem] relative group"
         >
-          <div className="flex justify-center mb-6">
-            <Clock className="w-16 h-16 text-blue-400" />
+          <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent"></div>
+
+          <div className="flex justify-center mb-8 relative">
+            <div className="absolute inset-0 bg-blue-500/30 blur-2xl rounded-full scale-50"></div>
+            <Clock className="w-20 h-20 text-blue-400 relative z-10" strokeWidth={1.5} />
           </div>
 
-          <h1 className="text-4xl font-bold mb-2 tracking-tight">
-            {format(currentTime, 'HH:mm:ss')}
-          </h1>
-          <p className="text-slate-400 mb-8">{format(currentTime, 'EEEE, MMMM do, yyyy')}</p>
+          <div className="space-y-2 mb-10">
+            <h1 className="text-6xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">
+              {format(currentTime, 'hh:mm:ss')}
+              <span className="text-2xl ml-2 font-medium bg-clip-text text-white/40 uppercase">
+                {format(currentTime, 'a')}
+              </span>
+            </h1>
+            <p className="text-slate-400 text-lg font-medium tracking-wide">
+              {format(currentTime, 'EEEE, MMMM do')}
+            </p>
+          </div>
 
-          <div className="space-y-4">
-            <input
-              type="text"
-              value={employeeId}
-              onChange={(e) => setEmployeeId(e.target.value)}
-              placeholder="Enter Employee ID"
-              className="w-full bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-3 text-center text-xl tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-            />
+          <div className="space-y-6">
+            <div className="group/input relative">
+              <User className="absolute left-5 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-500 group-focus-within/input:text-blue-400 transition-colors" />
+              <input
+                type="text"
+                value={employeeId}
+                onChange={(e) => setEmployeeId(e.target.value)}
+                placeholder="Enter Employee ID"
+                className="w-full bg-slate-900/60 border border-white/10 rounded-2xl pl-14 pr-6 py-5 text-left text-2xl font-bold tracking-[0.2em] focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all placeholder:text-slate-600 placeholder:tracking-normal group-hover/input:border-white/20"
+              />
+            </div>
 
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <div className="group/input relative">
+              <MapPin className="absolute left-5 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-500 group-focus-within/input:text-blue-400 transition-colors" />
               <input
                 type="text"
                 value={locationInput}
                 onChange={(e) => setLocationInput(e.target.value)}
-                placeholder="Location (Optional)"
-                className="w-full bg-slate-800/50 border border-slate-700 rounded-lg pl-10 pr-4 py-3 text-center text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all placeholder:text-slate-500"
+                placeholder="Work Location (Optional)"
+                className="w-full bg-slate-900/40 border border-white/10 rounded-2xl pl-14 pr-6 py-5 text-left text-lg font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all placeholder:text-slate-600 group-hover/input:border-white/20"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <button
+            <div className="grid grid-cols-2 gap-6 pt-4">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={handleClockIn}
                 disabled={!employeeId}
-                className="bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition-colors cursor-pointer"
+                className="relative overflow-hidden bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 disabled:opacity-30 disabled:cursor-not-allowed text-white font-bold py-5 rounded-2xl transition-all shadow-lg shadow-blue-900/20 group/btn"
               >
+                <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity"></div>
                 Clock In
-              </button>
-              <button
+              </motion.button>
+
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={handleClockOut}
                 disabled={!employeeId}
-                className="bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition-colors cursor-pointer"
+                className="relative overflow-hidden bg-slate-800/80 hover:bg-slate-700/80 border border-white/5 disabled:opacity-30 disabled:cursor-not-allowed text-white font-bold py-5 rounded-2xl transition-all group/btn"
               >
+                <div className="absolute inset-0 bg-white/5 opacity-0 group-hover/btn:opacity-100 transition-opacity"></div>
                 Clock Out
-              </button>
+              </motion.button>
             </div>
           </div>
         </motion.div>
 
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
           {status !== 'idle' && (
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              className={`p-4 rounded-lg backdrop-blur-md border ${status === 'success'
-                ? 'bg-green-500/20 border-green-500/50 text-green-200'
-                : 'bg-red-500/20 border-red-500/50 text-red-200'
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className={`p-6 rounded-[1.5rem] glass-card border-t-2 ${status === 'success'
+                ? 'border-green-500/50 text-green-100 shadow-green-900/20'
+                : 'border-rose-500/50 text-rose-100 shadow-rose-900/20'
                 }`}
             >
-              <div className="flex items-center justify-center gap-2">
-                <UserCheck className="w-5 h-5" />
-                <span className="font-medium">{message}</span>
+              <div className="flex items-center justify-center gap-4">
+                <div className={`p-2 rounded-full ${status === 'success' ? 'bg-green-500/20' : 'bg-rose-500/20'}`}>
+                  <UserCheck className="w-6 h-6" />
+                </div>
+                <span className="text-lg font-semibold">{message}</span>
               </div>
             </motion.div>
           )}
@@ -157,15 +161,15 @@ export default function KioskPage() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 1 }}
+          transition={{ delay: 1.2 }}
           className="flex justify-center"
         >
           <Link
             href="/login"
-            className="flex items-center gap-2 text-slate-500 hover:text-slate-300 transition-colors text-sm"
+            className="flex items-center gap-3 px-6 py-3 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all text-sm font-medium border border-white/5"
           >
             <Settings className="w-4 h-4" />
-            HR Admin Login
+            Admin Login
           </Link>
         </motion.div>
       </div>
