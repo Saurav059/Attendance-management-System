@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import * as bcrypt from 'bcryptjs';
 import { login } from '@/lib/auth';
-import fs from 'fs';
+
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -33,7 +33,6 @@ export async function POST(request: Request) {
 
         return NextResponse.json({ message: 'Logged in successfully' });
     } catch (error: any) {
-        fs.appendFileSync('api-debug.log', `Login error: ${error.message}\n${error.stack}\n`);
         console.error('Login error:', error);
         return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
     }
