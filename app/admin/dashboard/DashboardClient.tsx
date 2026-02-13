@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
-import { Users, Clock, UserCheck, UserX, LogOut, Plus, DollarSign, Settings, Activity, Calendar, MapPin } from 'lucide-react';
+import { Users, Clock, UserCheck, UserX, LogOut, Plus, DollarSign, Settings, Activity, Calendar, MapPin, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format } from 'date-fns';
@@ -34,6 +34,8 @@ export default function DashboardClient({
     const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [filterTab, setFilterTab] = useState<'all' | 'present' | 'absent' | 'clocked-in'>('all');
     const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [showLogoutConfirmation, setShowLogoutConfirmation] = useState(false);
     const contentRef = useRef<HTMLDivElement>(null);
 
     // Reset scroll when view changes
@@ -144,13 +146,37 @@ export default function DashboardClient({
             <div className="absolute top-[-10%] right-[-5%] w-[50%] h-[50%] bg-blue-600/10 blur-[120px] rounded-full animate-float pointer-events-none"></div>
             <div className="absolute bottom-[-10%] left-[-5%] w-[50%] h-[50%] bg-purple-600/5 blur-[120px] rounded-full animate-float pointer-events-none" style={{ animationDelay: '-3s' }}></div>
 
+            {/* Mobile Sidebar Overlay */}
+            <AnimatePresence>
+                {mobileMenuOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="fixed inset-0 bg-slate-950/80 z-40 lg:hidden backdrop-blur-sm"
+                    />
+                )}
+            </AnimatePresence>
+
             {/* Sidebar */}
-            <div className="w-72 bg-slate-900/40 backdrop-blur-2xl border-r border-white/5 p-8 flex flex-col hidden lg:flex relative z-10">
-                <div className="flex items-center gap-3 mb-12">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                        <UserCheck className="w-6 h-6 text-white" />
+            <motion.div
+                className={`w-72 bg-slate-900/95 backdrop-blur-2xl border-r border-white/5 p-8 flex flex-col fixed inset-y-0 left-0 z-50 lg:static lg:bg-slate-900/40 lg:z-10 transition-transform duration-300 ease-in-out ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+            >
+                <div className="flex items-center justify-between mb-12">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                            <UserCheck className="w-6 h-6 text-white" />
+                        </div>
+                        <h1 className="text-xl font-black text-white tracking-tight">ADMIN DASHBOARD</h1>
                     </div>
-                    <h1 className="text-xl font-black text-white tracking-tight">ADMIN DASHBOARD</h1>
+                    {/* Close button for mobile */}
+                    <button
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="lg:hidden p-2 text-slate-400 hover:text-white transition-colors"
+                    >
+                        <X className="w-6 h-6" />
+                    </button>
                 </div>
 
                 <nav className="flex-1 space-y-2">
@@ -162,7 +188,11 @@ export default function DashboardClient({
                     ].map((item) => (
                         <button
                             key={item.id}
-                            onClick={() => { setActiveView(item.id as any); setSelectedEmployeeId(null); }}
+                            onClick={() => {
+                                setActiveView(item.id as any);
+                                setSelectedEmployeeId(null);
+                                setMobileMenuOpen(false);
+                            }}
                             className={`w-full text-left px-5 py-3.5 rounded-2xl font-semibold flex items-center gap-4 transition-all duration-300 group ${activeView === item.id && !selectedEmployeeId
                                 ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 scale-[1.02]'
                                 : 'text-slate-400 hover:bg-white/5 hover:text-white'
@@ -186,51 +216,52 @@ export default function DashboardClient({
                     </div>
 
                     <button
-                        onClick={logout}
+                        onClick={() => setShowLogoutConfirmation(true)}
                         className="w-full px-5 py-3.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-2xl text-sm font-bold flex items-center gap-3 transition-all group cursor-pointer"
                     >
                         <LogOut className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                         Sign Out
                     </button>
                 </div>
-            </div>
+            </motion.div>
 
             {/* Main Content */}
             <div ref={contentRef} className="flex-1 overflow-y-auto relative z-10 custom-scrollbar">
-                <header className="sticky top-0 z-30 bg-slate-900/40 backdrop-blur-md border-b border-white/5 py-8 px-6 md:px-12 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                    <div>
-                        <h2 className="text-3xl md:text-5xl font-black text-white tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-white to-white/40">
-                            {selectedEmployeeId ? 'Employee Profile' :
-                                activeView === 'overview' ? 'Dashboard' :
-                                    activeView === 'employees' ? 'Employees' :
-                                        activeView === 'payroll' ? 'Payroll' : 'Settings'}
-                        </h2>
-                        <p className="text-slate-400 font-medium mt-2">
-                            {activeView === 'overview' ? 'View attendance trends and stats' :
-                                activeView === 'employees' ? 'Manage your employees and profiles' :
-                                    activeView === 'payroll' ? 'Track earnings and history' :
-                                        'Manage your account settings'}
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        {activeView === 'employees' && !selectedEmployeeId && (
-                            <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => setShowAddModal(true)}
-                                className="bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white px-6 py-3 rounded-2xl flex items-center gap-3 transition-all shadow-xl shadow-blue-500/20 cursor-pointer text-sm font-bold"
-                            >
-                                <Plus className="w-5 h-5" />
-                                <span>Add Employee</span>
-                            </motion.button>
-                        )}
-                        <button
-                            onClick={logout}
-                            className="lg:hidden p-3 bg-white/5 border border-white/10 text-rose-400 rounded-2xl transition-all"
-                            aria-label="Sign Out"
-                        >
-                            <LogOut className="w-5 h-5" />
-                        </button>
+                <header className="sticky top-0 z-30 bg-slate-900/40 backdrop-blur-md border-b border-white/5 py-6 px-6 md:px-12 flex flex-row items-center gap-6">
+                    <button
+                        onClick={() => setMobileMenuOpen(true)}
+                        className="lg:hidden p-2 text-white bg-white/5 rounded-xl border border-white/10"
+                    >
+                        <Menu className="w-6 h-6" />
+                    </button>
+                    <div className="flex-1 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <h2 className="text-2xl md:text-5xl font-black text-white tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-white to-white/40">
+                                {selectedEmployeeId ? 'Employee Profile' :
+                                    activeView === 'overview' ? 'Dashboard' :
+                                        activeView === 'employees' ? 'Employees' :
+                                            activeView === 'payroll' ? 'Payroll' : 'Settings'}
+                            </h2>
+                            <p className="text-slate-400 font-medium mt-1 md:mt-2 text-sm md:text-base hidden md:block">
+                                {activeView === 'overview' ? 'View attendance trends and stats' :
+                                    activeView === 'employees' ? 'Manage your employees and profiles' :
+                                        activeView === 'payroll' ? 'Track earnings and history' :
+                                            'Manage your account settings'}
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            {activeView === 'employees' && !selectedEmployeeId && (
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => setShowAddModal(true)}
+                                    className="bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white px-4 py-2 md:px-6 md:py-3 rounded-2xl flex items-center gap-2 md:gap-3 transition-all shadow-xl shadow-blue-500/20 cursor-pointer text-xs md:text-sm font-bold"
+                                >
+                                    <Plus className="w-4 h-4 md:w-5 md:h-5" />
+                                    <span>Add Employee</span>
+                                </motion.button>
+                            )}
+                        </div>
                     </div>
                 </header>
 
@@ -250,21 +281,21 @@ export default function DashboardClient({
                                     value={stats?.present}
                                     icon={UserCheck}
                                     color="bg-green-500"
-                                    onClick={() => { setFilterTab('present'); const el = document.getElementById('status-report'); el?.scrollIntoView({ behavior: 'smooth' }); }}
+                                    onClick={() => setFilterTab('present')}
                                 />
                                 <StatCard
                                     title="Absent"
                                     value={stats?.absent}
                                     icon={UserX}
                                     color="bg-red-500"
-                                    onClick={() => { setFilterTab('absent'); const el = document.getElementById('status-report'); el?.scrollIntoView({ behavior: 'smooth' }); }}
+                                    onClick={() => setFilterTab('absent')}
                                 />
                                 <StatCard
                                     title="Active Clock-ins"
                                     value={stats?.activeClockIns}
                                     icon={Clock}
                                     color="bg-orange-500"
-                                    onClick={() => { setFilterTab('clocked-in'); const el = document.getElementById('status-report'); el?.scrollIntoView({ behavior: 'smooth' }); }}
+                                    onClick={() => setFilterTab('clocked-in')}
                                 />
                             </div>
 
@@ -728,6 +759,43 @@ export default function DashboardClient({
 
             {/* Add Modal */}
             <AnimatePresence>
+                {showLogoutConfirmation && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-slate-950/90 backdrop-blur-md"
+                            onClick={() => setShowLogoutConfirmation(false)}
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 30 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 30 }}
+                            className="relative glass-card rounded-[2rem] w-full max-w-sm p-8 shadow-2xl overflow-hidden text-center"
+                        >
+                            <div className="mx-auto w-16 h-16 rounded-full bg-rose-500/10 flex items-center justify-center mb-6 text-rose-500">
+                                <LogOut className="w-8 h-8" />
+                            </div>
+                            <h3 className="text-2xl font-black text-white tracking-tight mb-2">Sign Out</h3>
+                            <p className="text-slate-400 font-medium mb-8">Are you sure you want to sign out of your account?</p>
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => setShowLogoutConfirmation(false)}
+                                    className="flex-1 py-3 rounded-xl bg-slate-800 text-white font-bold hover:bg-slate-700 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={logout}
+                                    className="flex-1 py-3 rounded-xl bg-rose-500 text-white font-bold hover:bg-rose-600 transition-colors shadow-lg shadow-rose-500/20"
+                                >
+                                    Sign Out
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
                 {showAddModal && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
                         <motion.div
@@ -764,37 +832,7 @@ export default function DashboardClient({
                     </div>
                 )}
             </AnimatePresence>
-            {/* Mobile Bottom Navigation */}
-            <div className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-xl border-t border-white/5 px-6 py-3 flex justify-between items-center z-40 pb-safe">
-                <button
-                    onClick={() => { setActiveView('overview'); setSelectedEmployeeId(null); }}
-                    className={`flex flex-col items-center gap-1 transition-all ${activeView === 'overview' && !selectedEmployeeId ? 'text-blue-400' : 'text-slate-500'}`}
-                >
-                    <Clock className="w-5 h-5" />
-                    <span className="text-[10px] font-medium">Dashboard</span>
-                </button>
-                <button
-                    onClick={() => { setActiveView('employees'); setSelectedEmployeeId(null); }}
-                    className={`flex flex-col items-center gap-1 transition-all ${activeView === 'employees' && !selectedEmployeeId ? 'text-blue-400' : 'text-slate-500'}`}
-                >
-                    <Users className="w-5 h-5" />
-                    <span className="text-[10px] font-medium">Employees</span>
-                </button>
-                <button
-                    onClick={() => { setActiveView('payroll'); setSelectedEmployeeId(null); }}
-                    className={`flex flex-col items-center gap-1 transition-all ${activeView === 'payroll' ? 'text-blue-400' : 'text-slate-500'}`}
-                >
-                    <DollarSign className="w-5 h-5" />
-                    <span className="text-[10px] font-medium">Payroll</span>
-                </button>
-                <button
-                    onClick={() => { setActiveView('settings'); setSelectedEmployeeId(null); }}
-                    className={`flex flex-col items-center gap-1 transition-all ${activeView === 'settings' ? 'text-blue-400' : 'text-slate-500'}`}
-                >
-                    <Settings className="w-5 h-5" />
-                    <span className="text-[10px] font-medium">Settings</span>
-                </button>
-            </div>
+
         </div>
     );
 }
