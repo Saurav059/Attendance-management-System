@@ -115,8 +115,6 @@ export async function getDashboardStats(targetDate = new Date()) {
         });
     }
 
-    // Include additional data for the dashboard
-    const weeklyTrend = await getWeeklyHistory();
 
     return {
         totalEmployees,
@@ -124,7 +122,6 @@ export async function getDashboardStats(targetDate = new Date()) {
         absent: Math.max(0, absentCount),
         activeClockIns: attendancesForDate.filter((a: AttendanceWithEmployee) => !a.clockOutTime).length,
         chartData,
-        weeklyTrend: JSON.parse(JSON.stringify(weeklyTrend)),
         recentActivity: JSON.parse(JSON.stringify(allAttendances.slice(0, 5))),
         dailyDetails: JSON.parse(JSON.stringify(dailyDetails)),
     };

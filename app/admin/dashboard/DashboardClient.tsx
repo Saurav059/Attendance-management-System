@@ -25,8 +25,10 @@ export default function DashboardClient({
 }) {
     const router = useRouter();
     const [stats, setStats] = useState(initialStats);
-    const [employees, setEmployees] = useState(initialEmployees);
+    const [employees, setEmployees] = useState(initialEmployees || []);
+    const [payrollData, setPayrollData] = useState(initialPayrollData || []);
     const [loading, setLoading] = useState(false);
+    const [initialLoading, setInitialLoading] = useState(!initialStats);
     const [activeView, setActiveView] = useState<'overview' | 'employees' | 'payroll' | 'settings'>('overview');
     const [showAddModal, setShowAddModal] = useState(false);
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
@@ -37,6 +39,38 @@ export default function DashboardClient({
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [showLogoutConfirmation, setShowLogoutConfirmation] = useState(false);
     const contentRef = useRef<HTMLDivElement>(null);
+
+    // Pagination states
+    const [attendancePage, setAttendancePage] = useState(1);
+    const [employeesPage, setEmployeesPage] = useState(1);
+    const itemsPerPage = 10;
+
+    // Reset pagination when filters change
+    useEffect(() => {
+        setAttendancePage(1);
+    }, [filterTab, selectedDate]);
+
+    // Fetch initial data
+    useEffect(() => {
+        const fetchInitialData = async () => {
+            if (!initialStats) {
+                setInitialLoading(true);
+                try {
+                    const [statsRes, empRes] = await Promise.all([
+                        axios.get(`/api/reports/dashboard-stats?date=${selectedDate}`),
+                        axios.get('/api/employees')
+                    ]);
+                    setStats(statsRes.data);
+                    setEmployees(empRes.data);
+                } catch (err) {
+                    console.error('Failed to load initial data:', err);
+                } finally {
+                    setInitialLoading(false);
+                }
+            }
+        };
+        fetchInitialData();
+    }, [initialStats]);
 
     // Reset scroll when view changes
     useEffect(() => {
@@ -141,7 +175,7 @@ export default function DashboardClient({
     );
 
     return (
-        <div className="min-h-screen mesh-gradient flex relative overflow-hidden">
+        <div className="h-screen mesh-gradient flex relative overflow-hidden">
             {/* Background Orbs */}
             <div className="absolute top-[-10%] right-[-5%] w-[50%] h-[50%] bg-blue-600/10 blur-[120px] rounded-full animate-float pointer-events-none"></div>
             <div className="absolute bottom-[-10%] left-[-5%] w-[50%] h-[50%] bg-purple-600/5 blur-[120px] rounded-full animate-float pointer-events-none" style={{ animationDelay: '-3s' }}></div>
@@ -161,7 +195,7 @@ export default function DashboardClient({
 
             {/* Sidebar */}
             <motion.div
-                className={`w-72 bg-slate-900/95 backdrop-blur-2xl border-r border-white/5 p-8 flex flex-col fixed inset-y-0 left-0 z-50 lg:static lg:bg-slate-900/40 lg:z-10 transition-transform duration-300 ease-in-out ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+                className={`w-72 bg-slate-900/95 backdrop-blur-2xl border-r border-white/5 p-8 flex flex-col fixed inset-y-0 left-0 z-50 lg:static lg:bg-slate-900/40 lg:z-10 transition-transform duration-300 ease-in-out h-full overflow-y-auto custom-scrollbar ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
             >
                 <div className="flex items-center justify-between mb-12">
                     <div className="flex items-center gap-3">
@@ -266,14 +300,19 @@ export default function DashboardClient({
                 </header>
 
                 <div className="p-6 md:p-12 pt-10">
-
-                    {selectedEmployeeId ? (
+                    {initialLoading ? (
+                        <div className="flex flex-col items-center justify-center min-h-[400px] gap-6">
+                            <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+                            <p className="text-slate-400 font-bold uppercase tracking-widest text-sm animate-pulse">Loading Dashboard Data...</p>
+                        </div>
+                    ) : selectedEmployeeId ? (
                         <EmployeeProfile
                             employeeId={selectedEmployeeId}
                             onBack={() => setSelectedEmployeeId(null)}
                         />
                     ) : activeView === 'overview' ? (
                         <div className="space-y-10">
+                            {/* ... existing StatCards and Chart ... */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                                 <StatCard title="Total Employees" value={stats?.totalEmployees} icon={Users} color="bg-blue-500" />
                                 <StatCard
@@ -410,7 +449,7 @@ export default function DashboardClient({
                                             <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                                             Attendance List
                                         </h3>
-                                        <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
+                                        <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 overflow-x-auto">
                                             {[
                                                 { id: 'all', label: 'All', count: stats?.totalEmployees },
                                                 { id: 'present', label: 'Present', count: stats?.present },
@@ -420,7 +459,7 @@ export default function DashboardClient({
                                                 <button
                                                     key={tab.id}
                                                     onClick={() => setFilterTab(tab.id as any)}
-                                                    className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${filterTab === tab.id
+                                                    className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${filterTab === tab.id
                                                         ? 'bg-blue-600 text-white shadow-lg'
                                                         : 'text-slate-500 hover:text-white hover:bg-white/5'
                                                         }`}
@@ -443,7 +482,7 @@ export default function DashboardClient({
                                         />
                                     </div>
                                 </div>
-                                <div className="overflow-x-auto custom-scrollbar">
+                                <div className="hidden lg:block overflow-x-auto custom-scrollbar">
                                     <table className="w-full text-left border-collapse">
                                         <thead>
                                             <tr className="bg-white/5">
@@ -456,86 +495,234 @@ export default function DashboardClient({
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-white/5">
-                                            {stats?.dailyDetails?.filter((detail: any) => {
-                                                if (filterTab === 'all') return true;
-                                                if (filterTab === 'present') return detail.status === 'COMPLETED' || detail.status === 'CLOCKED_IN';
-                                                if (filterTab === 'absent') return detail.status === 'ABSENT';
-                                                if (filterTab === 'clocked-in') return detail.status === 'CLOCKED_IN';
-                                                return true;
-                                            }).map((detail: any) => (
-                                                <tr key={detail.id} className="hover:bg-white/5 transition-colors group/row">
-                                                    <td className="px-8 py-6">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 font-bold text-xs font-black">
-                                                                {detail.name[0]}
+                                            {(() => {
+                                                const filtered = stats?.dailyDetails?.filter((detail: any) => {
+                                                    if (filterTab === 'all') return true;
+                                                    if (filterTab === 'present') return detail.status === 'COMPLETED' || detail.status === 'CLOCKED_IN';
+                                                    if (filterTab === 'absent') return detail.status === 'ABSENT';
+                                                    if (filterTab === 'clocked-in') return detail.status === 'CLOCKED_IN';
+                                                    return true;
+                                                }) || [];
+                                                const totalPages = Math.ceil(filtered.length / itemsPerPage);
+                                                const paginated = filtered.slice((attendancePage - 1) * itemsPerPage, attendancePage * itemsPerPage);
+
+                                                if (paginated.length === 0) {
+                                                    return (
+                                                        <tr>
+                                                            <td colSpan={6} className="px-8 py-10 text-center text-slate-500 font-bold uppercase tracking-widest text-xs">No records found</td>
+                                                        </tr>
+                                                    );
+                                                }
+
+                                                return (
+                                                    <>
+                                                        {paginated.map((detail: any) => (
+                                                            <tr key={detail.id} className="hover:bg-white/5 transition-colors group/row">
+                                                                <td className="px-8 py-6">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 font-bold text-xs font-black">
+                                                                            {detail.name[0]}
+                                                                        </div>
+                                                                        <div className="flex flex-col">
+                                                                            <span className="text-sm text-white font-bold">{detail.name}</span>
+                                                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{detail.employeeId}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-8 py-6 text-right">
+                                                                    <div className="flex justify-end gap-2">
+                                                                        {detail.status === 'ABSENT' && (
+                                                                            <button
+                                                                                onClick={() => handleManualClockIn(detail.employeeId)}
+                                                                                disabled={actionLoading === detail.employeeId}
+                                                                                className="px-4 py-2 bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white border border-blue-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
+                                                                            >
+                                                                                {actionLoading === detail.employeeId ? 'Processing...' : 'Manual In'}
+                                                                            </button>
+                                                                        )}
+                                                                        {detail.status === 'CLOCKED_IN' && (
+                                                                            <button
+                                                                                onClick={() => handleManualClockOut(detail.employeeId)}
+                                                                                disabled={actionLoading === detail.employeeId}
+                                                                                className="px-4 py-2 bg-rose-600/10 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
+                                                                            >
+                                                                                {actionLoading === detail.employeeId ? 'Processing...' : 'Manual Out'}
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-8 py-6">
+                                                                    {detail.clockIn ? (
+                                                                        <div className="flex flex-col">
+                                                                            <span className="text-sm font-black text-emerald-400 tabular-nums">
+                                                                                {format(new Date(detail.clockIn), 'HH:mm:ss')}
+                                                                            </span>
+                                                                            <span className="text-[10px] font-bold text-slate-500 uppercase">
+                                                                                {format(new Date(detail.clockIn), 'aaa')}
+                                                                            </span>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className="text-xs font-bold text-slate-600 tracking-widest">PENDING</span>
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-8 py-6">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <MapPin className="w-3 h-3 text-slate-500" />
+                                                                        <span className="text-xs font-black text-slate-400 uppercase tracking-tight">
+                                                                            {detail.clockInLocation || 'UNSPECIFIED'}
+                                                                        </span>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-8 py-6 text-right">
+                                                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-black bg-blue-500/10 text-blue-400 border border-blue-500/20 tabular-nums">
+                                                                        {(detail.totalHours || 0).toFixed(2)}H
+                                                                    </span>
+                                                                </td>
+                                                                <td className="px-8 py-6">
+                                                                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black tracking-widest border ${detail.status === 'COMPLETED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                                                                        detail.status === 'CLOCKED_IN' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20 animate-pulse' :
+                                                                            'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                                                                        }`}>
+                                                                        {detail.status}
+                                                                    </span>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                        {totalPages > 1 && (
+                                                            <tr>
+                                                                <td colSpan={6} className="px-8 py-4 bg-white/5">
+                                                                    <div className="flex items-center justify-between">
+                                                                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                                                                            Page {attendancePage} of {totalPages}
+                                                                        </p>
+                                                                        <div className="flex gap-2">
+                                                                            <button
+                                                                                onClick={() => setAttendancePage(p => Math.max(1, p - 1))}
+                                                                                disabled={attendancePage === 1}
+                                                                                className="p-2 rounded-lg bg-white/5 border border-white/10 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 transition-colors"
+                                                                            >
+                                                                                Previous
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => setAttendancePage(p => Math.min(totalPages, p + 1))}
+                                                                                disabled={attendancePage === totalPages}
+                                                                                className="p-2 rounded-lg bg-white/5 border border-white/10 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 transition-colors"
+                                                                            >
+                                                                                Next
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        )}
+                                                    </>
+                                                );
+                                            })()}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Mobile Attendance View */}
+                                <div className="lg:hidden p-4 space-y-4 pb-32 overflow-y-auto">
+                                    {(() => {
+                                        const filtered = stats?.dailyDetails?.filter((detail: any) => {
+                                            if (filterTab === 'all') return true;
+                                            if (filterTab === 'present') return detail.status === 'COMPLETED' || detail.status === 'CLOCKED_IN';
+                                            if (filterTab === 'absent') return detail.status === 'ABSENT';
+                                            if (filterTab === 'clocked-in') return detail.status === 'CLOCKED_IN';
+                                            return true;
+                                        }) || [];
+                                        const totalPages = Math.ceil(filtered.length / itemsPerPage);
+                                        const paginated = filtered.slice((attendancePage - 1) * itemsPerPage, attendancePage * itemsPerPage);
+
+                                        if (paginated.length === 0) {
+                                            return <div className="py-20 text-center text-slate-500 font-bold uppercase tracking-widest text-xs">No records found</div>;
+                                        }
+
+                                        return (
+                                            <>
+                                                {paginated.map((detail: any) => (
+                                                    <div key={detail.id} className="bg-white/5 border border-white/5 rounded-[1.5rem] p-5 space-y-4">
+                                                        <div className="flex justify-between items-start">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 font-bold text-sm">
+                                                                    {detail.name[0]}
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-white font-bold text-sm">{detail.name}</p>
+                                                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{detail.employeeId}</p>
+                                                                </div>
                                                             </div>
-                                                            <div className="flex flex-col">
-                                                                <span className="text-sm text-white font-bold">{detail.name}</span>
-                                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{detail.employeeId}</span>
+                                                            <span className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest border ${detail.status === 'COMPLETED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                                                                detail.status === 'CLOCKED_IN' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                                                                    'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                                                                }`}>
+                                                                {detail.status}
+                                                            </span>
+                                                        </div>
+
+                                                        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
+                                                            <div>
+                                                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Time In</p>
+                                                                <p className="text-xs text-white font-bold tabular-nums">
+                                                                    {detail.clockIn ? format(new Date(detail.clockIn), 'HH:mm:ss') : '--:--:--'}
+                                                                </p>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Hours</p>
+                                                                <p className="text-xs text-blue-400 font-black tabular-nums">{(detail.totalHours || 0).toFixed(2)}H</p>
                                                             </div>
                                                         </div>
-                                                    </td>
-                                                    <td className="px-8 py-6 text-right">
-                                                        <div className="flex justify-end gap-2">
+
+                                                        <div className="flex gap-2 pt-2">
                                                             {detail.status === 'ABSENT' && (
                                                                 <button
                                                                     onClick={() => handleManualClockIn(detail.employeeId)}
                                                                     disabled={actionLoading === detail.employeeId}
-                                                                    className="px-4 py-2 bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white border border-blue-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
+                                                                    className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-600/20"
                                                                 >
-                                                                    {actionLoading === detail.employeeId ? 'Processing...' : 'Manual In'}
+                                                                    {actionLoading === detail.employeeId ? '...' : 'Manual In'}
                                                                 </button>
                                                             )}
                                                             {detail.status === 'CLOCKED_IN' && (
                                                                 <button
                                                                     onClick={() => handleManualClockOut(detail.employeeId)}
                                                                     disabled={actionLoading === detail.employeeId}
-                                                                    className="px-4 py-2 bg-rose-600/10 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
+                                                                    className="flex-1 py-3 bg-rose-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-rose-600/20"
                                                                 >
-                                                                    {actionLoading === detail.employeeId ? 'Processing...' : 'Manual Out'}
+                                                                    {actionLoading === detail.employeeId ? '...' : 'Manual Out'}
                                                                 </button>
                                                             )}
                                                         </div>
-                                                    </td>
-                                                    <td className="px-8 py-6">
-                                                        {detail.clockIn ? (
-                                                            <div className="flex flex-col">
-                                                                <span className="text-sm font-black text-emerald-400 tabular-nums">
-                                                                    {format(new Date(detail.clockIn), 'HH:mm:ss')}
-                                                                </span>
-                                                                <span className="text-[10px] font-bold text-slate-500 uppercase">
-                                                                    {format(new Date(detail.clockIn), 'aaa')}
-                                                                </span>
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-xs font-bold text-slate-600 tracking-widest">PENDING</span>
-                                                        )}
-                                                    </td>
-                                                    <td className="px-8 py-6">
-                                                        <div className="flex items-center gap-2">
-                                                            <MapPin className="w-3 h-3 text-slate-500" />
-                                                            <span className="text-xs font-black text-slate-400 uppercase tracking-tight">
-                                                                {detail.clockInLocation || 'UNSPECIFIED'}
-                                                            </span>
+                                                    </div>
+                                                ))}
+
+                                                {totalPages > 1 && (
+                                                    <div className="flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-xl">
+                                                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                                                            Page {attendancePage}
+                                                        </p>
+                                                        <div className="flex gap-2">
+                                                            <button
+                                                                onClick={() => setAttendancePage(p => Math.max(1, p - 1))}
+                                                                disabled={attendancePage === 1}
+                                                                className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white disabled:opacity-30 text-[10px] font-black"
+                                                            >
+                                                                PREV
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setAttendancePage(p => Math.min(totalPages, p + 1))}
+                                                                disabled={attendancePage === totalPages}
+                                                                className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white disabled:opacity-30 text-[10px] font-black"
+                                                            >
+                                                                NEXT
+                                                            </button>
                                                         </div>
-                                                    </td>
-                                                    <td className="px-8 py-6 text-right">
-                                                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-black bg-blue-500/10 text-blue-400 border border-blue-500/20 tabular-nums">
-                                                            {(detail.totalHours || 0).toFixed(2)}H
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-8 py-6">
-                                                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black tracking-widest border ${detail.status === 'COMPLETED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                                                            detail.status === 'CLOCKED_IN' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20 animate-pulse' :
-                                                                'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                                                            }`}>
-                                                            {detail.status}
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                                    </div>
+                                                )}
+                                            </>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         </div>
@@ -603,89 +790,157 @@ export default function DashboardClient({
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-white/5">
-                                        {employees.map((emp) => (
-                                            <tr
-                                                key={emp.id}
-                                                className="hover:bg-white/5 transition-all group/row cursor-pointer"
-                                                onClick={() => setSelectedEmployeeId(emp.id)}
-                                            >
-                                                <td className="px-8 py-6">
-                                                    <span className="text-sm font-black text-blue-400 tracking-wider tabular-nums">
-                                                        {emp.employeeId}
-                                                    </span>
-                                                </td>
-                                                <td className="px-8 py-6">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-white font-bold group-hover/row:from-blue-600 group-hover/row:to-blue-700 transition-all duration-300 shadow-lg">
-                                                            {emp.name[0]}
-                                                        </div>
-                                                        <span className="text-base text-white font-bold group-hover/row:text-blue-400 transition-colors uppercase tracking-tight">{emp.name}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-8 py-6">
-                                                    <span className="px-4 py-1.5 bg-blue-500/10 text-blue-400 rounded-full text-[10px] font-black tracking-widest border border-blue-500/20 uppercase">
-                                                        {emp.role}
-                                                    </span>
-                                                </td>
-                                                <td className="px-8 py-6 text-right">
-                                                    <button
-                                                        onClick={(e: React.MouseEvent) => {
-                                                            e.stopPropagation();
-                                                            handleDeleteEmployee(emp.id);
-                                                        }}
-                                                        disabled={isDeleting === emp.id}
-                                                        className="opacity-0 group-hover/row:opacity-100 bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white px-4 py-2 rounded-xl transition-all text-xs font-black uppercase tracking-widest cursor-pointer border border-rose-500/20"
-                                                    >
-                                                        {isDeleting === emp.id ? 'Deleting...' : 'Delete'}
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        {(() => {
+                                            const totalPages = Math.ceil(employees.length / itemsPerPage);
+                                            const paginated = employees.slice((employeesPage - 1) * itemsPerPage, employeesPage * itemsPerPage);
+
+                                            return (
+                                                <>
+                                                    {paginated.map((emp) => (
+                                                        <tr
+                                                            key={emp.id}
+                                                            className="hover:bg-white/5 transition-all group/row cursor-pointer"
+                                                            onClick={() => setSelectedEmployeeId(emp.id)}
+                                                        >
+                                                            <td className="px-8 py-6">
+                                                                <span className="text-sm font-black text-blue-400 tracking-wider tabular-nums">
+                                                                    {emp.employeeId}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-8 py-6">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-white font-bold group-hover/row:from-blue-600 group-hover/row:to-blue-700 transition-all duration-300 shadow-lg">
+                                                                        {emp.name[0]}
+                                                                    </div>
+                                                                    <span className="text-base text-white font-bold group-hover/row:text-blue-400 transition-colors uppercase tracking-tight">{emp.name}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-8 py-6">
+                                                                <span className="px-4 py-1.5 bg-blue-500/10 text-blue-400 rounded-full text-[10px] font-black tracking-widest border border-blue-500/20 uppercase">
+                                                                    {emp.role}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-8 py-6 text-right">
+                                                                <button
+                                                                    onClick={(e: React.MouseEvent) => {
+                                                                        e.stopPropagation();
+                                                                        handleDeleteEmployee(emp.id);
+                                                                    }}
+                                                                    disabled={isDeleting === emp.id}
+                                                                    className="opacity-0 group-hover/row:opacity-100 bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white px-4 py-2 rounded-xl transition-all text-xs font-black uppercase tracking-widest cursor-pointer border border-rose-500/20"
+                                                                >
+                                                                    {isDeleting === emp.id ? 'Deleting...' : 'Delete'}
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                    {totalPages > 1 && (
+                                                        <tr>
+                                                            <td colSpan={4} className="px-8 py-4 bg-white/5">
+                                                                <div className="flex items-center justify-between">
+                                                                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                                                                        Page {employeesPage} of {totalPages}
+                                                                    </p>
+                                                                    <div className="flex gap-2">
+                                                                        <button
+                                                                            onClick={() => setEmployeesPage(p => Math.max(1, p - 1))}
+                                                                            disabled={employeesPage === 1}
+                                                                            className="p-2 rounded-lg bg-white/5 border border-white/10 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 transition-colors"
+                                                                        >
+                                                                            Previous
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => setEmployeesPage(p => Math.min(totalPages, p + 1))}
+                                                                            disabled={employeesPage === totalPages}
+                                                                            className="p-2 rounded-lg bg-white/5 border border-white/10 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 transition-colors"
+                                                                        >
+                                                                            Next
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
                                     </tbody>
                                 </table>
                             </div>
 
                             {/* Mobile Card View */}
-                            <div className="md:hidden space-y-3 pb-20">
-                                {employees.map((emp) => (
-                                    <div
-                                        key={emp.id}
-                                        className="bg-slate-800/50 p-4 rounded-xl border border-white/5 active:scale-[0.98] transition-transform"
-                                        onClick={() => setSelectedEmployeeId(emp.id)}
-                                    >
-                                        <div className="flex justify-between items-start mb-3">
-                                            <div>
-                                                <h4 className="text-white font-medium text-base">{emp.name}</h4>
-                                                <p className="text-blue-400 text-xs font-mono bg-blue-500/10 px-2 py-0.5 rounded inline-block mt-1">
-                                                    {emp.employeeId}
-                                                </p>
-                                            </div>
-                                            <span className="px-2 py-1 bg-slate-700/50 text-slate-300 rounded-md text-[10px] font-medium border border-white/5 uppercase tracking-wider">
-                                                {emp.role}
-                                            </span>
-                                        </div>
+                            <div className="lg:hidden space-y-3 pb-32">
+                                {(() => {
+                                    const totalPages = Math.ceil(employees.length / itemsPerPage);
+                                    const paginated = employees.slice((employeesPage - 1) * itemsPerPage, employeesPage * itemsPerPage);
 
-                                        <div className="grid grid-cols-2 gap-4 pt-3 border-t border-white/5">
-                                            <div>
-                                                <span className="block text-slate-500 text-[10px] uppercase tracking-wider mb-1">Max Hours/Week</span>
-                                                <span className="text-slate-300 text-sm">{emp.maxHoursPerWeek || 40}h</span>
-                                            </div>
-                                            <div className="text-right flex flex-col items-end">
-                                                <span className="block text-slate-500 text-[10px] uppercase tracking-wider mb-1">Action</span>
-                                                <button
-                                                    onClick={(e: React.MouseEvent) => {
-                                                        e.stopPropagation();
-                                                        handleDeleteEmployee(emp.id);
-                                                    }}
-                                                    disabled={isDeleting === emp.id}
-                                                    className="text-red-400 text-sm font-medium active:text-red-300 py-1"
+                                    return (
+                                        <>
+                                            {paginated.map((emp) => (
+                                                <div
+                                                    key={emp.id}
+                                                    className="bg-slate-800/50 p-4 rounded-xl border border-white/5 active:scale-[0.98] transition-transform"
+                                                    onClick={() => setSelectedEmployeeId(emp.id)}
                                                 >
-                                                    {isDeleting === emp.id ? 'Deleting...' : 'Remove User'}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
+                                                    <div className="flex justify-between items-start mb-3">
+                                                        <div>
+                                                            <h4 className="text-white font-medium text-base">{emp.name}</h4>
+                                                            <p className="text-blue-400 text-xs font-mono bg-blue-500/10 px-2 py-0.5 rounded inline-block mt-1">
+                                                                {emp.employeeId}
+                                                            </p>
+                                                        </div>
+                                                        <span className="px-2 py-1 bg-slate-700/50 text-slate-300 rounded-md text-[10px] font-medium border border-white/5 uppercase tracking-wider">
+                                                            {emp.role}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-2 gap-4 pt-3 border-t border-white/5">
+                                                        <div>
+                                                            <span className="block text-slate-500 text-[10px] uppercase tracking-wider mb-1">Max Hours/Week</span>
+                                                            <span className="text-slate-300 text-sm">{emp.maxHoursPerWeek || 40}h</span>
+                                                        </div>
+                                                        <div className="text-right flex flex-col items-end">
+                                                            <span className="block text-slate-500 text-[10px] uppercase tracking-wider mb-1">Action</span>
+                                                            <button
+                                                                onClick={(e: React.MouseEvent) => {
+                                                                    e.stopPropagation();
+                                                                    handleDeleteEmployee(emp.id);
+                                                                }}
+                                                                disabled={isDeleting === emp.id}
+                                                                className="text-red-400 text-sm font-medium active:text-red-300 py-1"
+                                                            >
+                                                                {isDeleting === emp.id ? 'Deleting...' : 'Remove User'}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {totalPages > 1 && (
+                                                <div className="flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-xl">
+                                                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                                                        Page {employeesPage} of {totalPages}
+                                                    </p>
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            onClick={() => setEmployeesPage(p => Math.max(1, p - 1))}
+                                                            disabled={employeesPage === 1}
+                                                            className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white disabled:opacity-30 text-xs font-bold"
+                                                        >
+                                                            Prev
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setEmployeesPage(p => Math.min(totalPages, p + 1))}
+                                                            disabled={employeesPage === totalPages}
+                                                            className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white disabled:opacity-30 text-xs font-bold"
+                                                        >
+                                                            Next
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    );
+                                })()}
                             </div>
                         </div>
                     ) : activeView === 'payroll' ? (
@@ -715,7 +970,7 @@ export default function DashboardClient({
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="overflow-x-auto custom-scrollbar">
+                                    <div className="hidden lg:block overflow-x-auto custom-scrollbar">
                                         <table className="w-full text-left">
                                             <thead>
                                                 <tr className="bg-slate-900/30">
@@ -746,11 +1001,33 @@ export default function DashboardClient({
                                             </tbody>
                                         </table>
                                     </div>
+
+                                    {/* Mobile Payroll View */}
+                                    <div className="lg:hidden p-4 space-y-3">
+                                        {period.employees.map((emp: any) => (
+                                            <div key={emp.employeeId} className="bg-white/5 border border-white/5 p-4 rounded-2xl flex justify-between items-center">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 font-bold text-xs">
+                                                        {emp.name[0]}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm text-white font-bold">{emp.name}</p>
+                                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{emp.hours}H Worked</p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-sm font-black text-emerald-400 font-mono">${emp.amount.toLocaleString()}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </motion.div>
                             ))}
+                            {/* Mobile Spacing */}
+                            <div className="h-32 md:hidden"></div>
                         </div>
                     ) : activeView === 'settings' ? (
-                        <div className="max-w-md mx-auto">
+                        <div className="max-w-md mx-auto space-y-10 pb-32">
                             <HRSettingsForm userEmail={userEmail} />
                         </div>
                     ) : null}
