@@ -11,18 +11,13 @@ export default async function DashboardPage() {
         redirect('/login');
     }
 
-    const stats = await getDashboardStats();
-    const employees = await prisma.employee.findMany({
-        orderBy: { name: 'asc' }
-    });
-    const payrollData = await getBiWeeklyPayroll();
-
+    // Data will be fetched on the client side to prevent UI blocking
     return (
         <DashboardClient
-            initialStats={stats}
-            initialEmployees={JSON.parse(JSON.stringify(employees))}
-            initialPayrollData={JSON.parse(JSON.stringify(payrollData))}
-            initialWeeklyTrend={stats.weeklyTrend}
+            initialStats={null}
+            initialEmployees={[]}
+            initialPayrollData={[]}
+            initialWeeklyTrend={[]}
             userEmail={session.email}
         />
     );
