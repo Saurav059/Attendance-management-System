@@ -172,17 +172,19 @@ export async function getBiWeeklyPayroll() {
         }
     });
 
-    const payroll = employees.map((emp: Employee & { attendances: Attendance[] }) => {
-        const hours = emp.attendances.reduce((sum: number, a: Attendance) => sum + (a.totalHours || 0), 0);
-        return {
-            id: emp.id,
-            name: emp.name,
-            employeeId: emp.employeeId,
-            hours: parseFloat(hours.toFixed(2)),
-            rate: emp.hourlyRate,
-            amount: parseFloat((hours * emp.hourlyRate).toFixed(2))
-        };
-    });
+    const payroll = employees
+        .filter(emp => emp.attendances.length > 0) // Only show employees with attendance in this period
+        .map((emp: Employee & { attendances: Attendance[] }) => {
+            const hours = emp.attendances.reduce((sum: number, a: Attendance) => sum + (a.totalHours || 0), 0);
+            return {
+                id: emp.id,
+                name: emp.name,
+                employeeId: emp.employeeId,
+                hours: parseFloat(hours.toFixed(2)),
+                rate: emp.hourlyRate,
+                amount: parseFloat((hours * emp.hourlyRate).toFixed(2))
+            };
+        });
 
     // Mocking the "Period" structure from legacy for UI compatibility
     return [{
@@ -257,3 +259,133 @@ export async function deleteAttendance(id: string) {
 }
 
 
+// ============================================
+// HR Attendance Edit & Audit Functions
+// ============================================
+
+interface EditAttendanceParams {
+    attendanceId: string;
+    clockInTime?: Date;
+    clockOutTime?: Date;
+    clockInLocation?: string;
+    clockOutLocation?: string;
+    reason: string;
+    hrEmail: string;
+}
+
+interface CreateManualAttendanceParams {
+    employeeId: string;
+    clockInTime: Date;
+    clockOutTime?: Date;
+    clockInLocation?: string;
+    clockOutLocation?: string;
+    reason: string;
+    hrEmail: string;
+}
+
+// Edit existing attendance record
+export async function editAttendanceRecord(params: EditAttendanceParams) {
+    const { attendanceId, clockInTime, clockOutTime, clockInLocation, clockOutLocation, reason, hrEmail } = params;
+
+    // Get existing attendance record
+    const existing = await prisma.attendance.findUnique({
+        where: { id: attendanceId }
+    });
+
+    if (!existing) {
+        throw new Error('Attendance record not found');
+    }
+
+    // Prepare update data
+    const updateData: any = {
+        isManuallyEdited: true,
+        editedBy: hrEmail,
+        editedAt: new Date(),
+        editReason: reason,
+    };
+
+    if (clockInTime) updateData.clockInTime = clockInTime;
+    if (clockOutTime !== undefined) updateData.clockOutTime = clockOutTime;
+    if (clockInLocation !== undefined) updateData.clockInLocation = clockInLocation;
+    if (clockOutLocation !== undefined) updateData.clockOutLocation = clockOutLocation;
+
+    // Calculate new total hours if times changed
+    const finalClockInTime = updateData.clockInTime || existing.clockInTime;
+    const finalClockOutTime = updateData.clockOutTime !== undefined ? updateData.clockOutTime : existing.clockOutTime;
+
+    if (finalClockOutTime) {
+        const durationMs = finalClockOutTime.getTime() - finalClockInTime.getTime();
+        updateData.totalHours = durationMs / (1000 * 60 * 60);
+
+        if (updateData.totalHours < 0) {
+            throw new Error('Clock out time must be after clock in time');
+        }
+    }
+
+    // Update the record
+    return prisma.attendance.update({
+        where: { id: attendanceId },
+        data: updateData,
+        include: {
+            employee: true
+        }
+    });
+}
+
+// Create manual attendance record
+export async function createManualAttendance(params: CreateManualAttendanceParams) {
+    const { employeeId, clockInTime, clockOutTime, clockInLocation, clockOutLocation, reason, hrEmail } = params;
+
+    // Validate employee exists
+    const employee = await prisma.employee.findUnique({
+        where: { id: employeeId }
+    });
+
+    if (!employee) {
+        throw new Error('Employee not found');
+    }
+
+    // Calculate total hours if clock out time provided
+    let totalHours: number | null = null;
+    if (clockOutTime) {
+        const durationMs = clockOutTime.getTime() - clockInTime.getTime();
+        totalHours = durationMs / (1000 * 60 * 60);
+
+        if (totalHours < 0) {
+            throw new Error('Clock out time must be after clock in time');
+        }
+    }
+
+    // Create attendance record
+    return prisma.attendance.create({
+        data: {
+            employeeId,
+            clockInTime,
+            clockOutTime,
+            clockInLocation,
+            clockOutLocation,
+            totalHours,
+            status: clockOutTime ? 'COMPLETED' : 'CLOCKED_IN',
+            isManuallyEdited: true,
+            editedBy: hrEmail,
+            editedAt: new Date(),
+            editReason: reason,
+        },
+        include: {
+            employee: true,
+        }
+    });
+}
+
+export async function getAttendanceAuditHistory(attendanceId: string) {
+    // This is a simplified version since we primarily use the fields on the Attendance model now
+    return prisma.attendance.findUnique({
+        where: { id: attendanceId },
+        select: {
+            isManuallyEdited: true,
+            editedBy: true,
+            editedAt: true,
+            editReason: true,
+        }
+    });
+}

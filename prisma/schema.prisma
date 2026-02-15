@@ -47,10 +47,13 @@ model Attendance {
   clockOutTime     DateTime?
   totalHours       Float?
   location         String? // Keeping for backward compatibility or general location
+  isManuallyEdited Boolean   @default(false)
+  editedBy         String?
+  editedAt         DateTime?
+  editReason       String?
   clockInLocation  String?
   clockOutLocation String?
   status           String   @default("PRESENT")
   
   @@index([employeeId])
 }
-

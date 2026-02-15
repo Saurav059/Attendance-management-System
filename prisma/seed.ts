@@ -43,15 +43,67 @@ async function main() {
             maxHoursPerWeek: 40,
             hourlyRate: 45,
         },
+        {
+            employeeId: 'EMP004',
+            name: 'Sarah Williams',
+            role: 'HR Manager',
+            maxHoursPerWeek: 40,
+            hourlyRate: 55,
+        },
+        {
+            employeeId: 'EMP005',
+            name: 'Robert Brown',
+            role: 'DevOps Engineer',
+            maxHoursPerWeek: 40,
+            hourlyRate: 52,
+        },
     ];
 
+    const createdEmployees = [];
     for (const emp of employees) {
         const employee = await prisma.employee.upsert({
             where: { employeeId: emp.employeeId },
             update: {},
             create: emp,
         });
+        createdEmployees.push(employee);
         console.log('✅ Created Employee:', employee.name);
+    }
+
+    // Create sample attendance records for the last 7 days
+    console.log('📅 Creating attendance records...');
+    const now = new Date();
+    for (let i = 0; i < 7; i++) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+
+        // Skip weekends for random seeding (optional, but makes it look more realistic)
+        if (date.getDay() === 0 || date.getDay() === 6) continue;
+
+        for (const emp of createdEmployees) {
+            // Randomly decide if employee was present (80% chance)
+            if (Math.random() > 0.2) {
+                const clockIn = new Date(date);
+                clockIn.setHours(9, Math.floor(Math.random() * 30), 0); // Around 9 AM
+
+                const clockOut = new Date(date);
+                clockOut.setHours(17, Math.floor(Math.random() * 30), 0); // Around 5 PM
+
+                const totalHours = (clockOut.getTime() - clockIn.getTime()) / (1000 * 60 * 60);
+
+                await prisma.attendance.create({
+                    data: {
+                        employeeId: emp.id,
+                        clockInTime: clockIn,
+                        clockOutTime: clockOut,
+                        totalHours: totalHours,
+                        status: 'PRESENT',
+                        clockInLocation: 'Main Office',
+                        clockOutLocation: 'Main Office',
+                    }
+                });
+            }
+        }
     }
 
     console.log('🎉 Seeding completed!');

@@ -9,6 +9,8 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { format } from 'date-fns';
 import EmployeeProfile from './components/EmployeeProfile';
 import AddEmployeeForm from './components/AddEmployeeForm';
+import EditAttendanceModal from './components/EditAttendanceModal';
+import CreateAttendanceModal from './components/CreateAttendanceModal';
 
 export default function DashboardClient({
     initialStats,
@@ -33,11 +35,16 @@ export default function DashboardClient({
     const [showAddModal, setShowAddModal] = useState(false);
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
     const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [showManualModal, setShowManualModal] = useState(false);
+    const [recordToEdit, setRecordToEdit] = useState<any>(null);
     const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [filterTab, setFilterTab] = useState<'all' | 'present' | 'absent' | 'clocked-in'>('all');
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [showLogoutConfirmation, setShowLogoutConfirmation] = useState(false);
+    const [employeeToDelete, setEmployeeToDelete] = useState<any>(null);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const contentRef = useRef<HTMLDivElement>(null);
 
     // Pagination states
@@ -72,12 +79,29 @@ export default function DashboardClient({
         fetchInitialData();
     }, [initialStats]);
 
-    // Reset scroll when view changes
     useEffect(() => {
         if (contentRef.current) {
             contentRef.current.scrollTo(0, 0);
         }
     }, [activeView, selectedEmployeeId]);
+
+    // Fetch payroll data when switching to payroll view
+    useEffect(() => {
+        const fetchPayrollData = async () => {
+            if (activeView === 'payroll' && payrollData.length === 0) {
+                setLoading(true);
+                try {
+                    const res = await axios.get('/api/reports/payroll');
+                    setPayrollData(res.data);
+                } catch (err) {
+                    console.error('Failed to fetch payroll data:', err);
+                } finally {
+                    setLoading(false);
+                }
+            }
+        };
+        fetchPayrollData();
+    }, [activeView]);
 
     const fetchStats = async (date: string) => {
         setLoading(true);
@@ -109,12 +133,14 @@ export default function DashboardClient({
         }
     };
 
-    const handleDeleteEmployee = async (id: string) => {
-        if (!confirm('Are you sure you want to delete this employee? This will also remove all their attendance history.')) return;
-        setIsDeleting(id);
+    const handleDeleteEmployee = async () => {
+        if (!employeeToDelete) return;
+        setIsDeleting(employeeToDelete.id);
         try {
-            await axios.delete(`/api/employees/${id}`);
-            setEmployees(employees.filter(e => e.id !== id));
+            await axios.delete(`/api/employees/${employeeToDelete.id}`);
+            setEmployees(employees.filter(e => e.id !== employeeToDelete.id));
+            setShowDeleteConfirm(false);
+            setEmployeeToDelete(null);
         } catch (err) {
             alert('Failed to delete employee');
         } finally {
@@ -469,17 +495,26 @@ export default function DashboardClient({
                                             ))}
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-3 bg-white/5 p-2 rounded-2xl border border-white/10 group-hover:border-white/20 transition-colors">
-                                        <Calendar className="w-4 h-4 text-slate-400 ml-2" />
-                                        <input
-                                            type="date"
-                                            value={selectedDate}
-                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                                setSelectedDate(e.target.value);
-                                                fetchStats(e.target.value);
-                                            }}
-                                            className="bg-transparent text-white text-sm font-bold px-3 py-1 outline-none border-none [color-scheme:dark]"
-                                        />
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-3 bg-white/5 p-2 rounded-2xl border border-white/10 group-hover:border-white/20 transition-colors">
+                                            <Calendar className="w-4 h-4 text-slate-400 ml-2" />
+                                            <input
+                                                type="date"
+                                                value={selectedDate}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                                    setSelectedDate(e.target.value);
+                                                    fetchStats(e.target.value);
+                                                }}
+                                                className="bg-transparent text-white text-sm font-bold px-3 py-1 outline-none border-none [color-scheme:dark]"
+                                            />
+                                        </div>
+                                        <button
+                                            onClick={() => setShowManualModal(true)}
+                                            className="p-3 bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white rounded-xl border border-blue-500/20 transition-all group/btn"
+                                            title="Add Manual Attendance"
+                                        >
+                                            <Plus className="w-4 h-4 group-hover/btn:rotate-90 transition-transform" />
+                                        </button>
                                     </div>
                                 </div>
                                 <div className="hidden lg:block overflow-x-auto custom-scrollbar">
@@ -531,9 +566,22 @@ export default function DashboardClient({
                                                                 </td>
                                                                 <td className="px-8 py-6 text-right">
                                                                     <div className="flex justify-end gap-2">
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setRecordToEdit(detail);
+                                                                                setShowEditModal(true);
+                                                                            }}
+                                                                            className="px-4 py-2 bg-blue-500/10 hover:bg-blue-500 text-blue-400 hover:text-white border border-blue-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                                                                        >
+                                                                            Edit
+                                                                        </button>
                                                                         {detail.status === 'ABSENT' && (
                                                                             <button
-                                                                                onClick={() => handleManualClockIn(detail.employeeId)}
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    handleManualClockIn(detail.employeeId);
+                                                                                }}
                                                                                 disabled={actionLoading === detail.employeeId}
                                                                                 className="px-4 py-2 bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white border border-blue-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
                                                                             >
@@ -542,7 +590,10 @@ export default function DashboardClient({
                                                                         )}
                                                                         {detail.status === 'CLOCKED_IN' && (
                                                                             <button
-                                                                                onClick={() => handleManualClockOut(detail.employeeId)}
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    handleManualClockOut(detail.employeeId);
+                                                                                }}
                                                                                 disabled={actionLoading === detail.employeeId}
                                                                                 className="px-4 py-2 bg-rose-600/10 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
                                                                             >
@@ -675,9 +726,22 @@ export default function DashboardClient({
                                                         </div>
 
                                                         <div className="flex gap-2 pt-2">
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setRecordToEdit(detail);
+                                                                    setShowEditModal(true);
+                                                                }}
+                                                                className="flex-1 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/10"
+                                                            >
+                                                                Edit
+                                                            </button>
                                                             {detail.status === 'ABSENT' && (
                                                                 <button
-                                                                    onClick={() => handleManualClockIn(detail.employeeId)}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleManualClockIn(detail.employeeId);
+                                                                    }}
                                                                     disabled={actionLoading === detail.employeeId}
                                                                     className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-600/20"
                                                                 >
@@ -686,7 +750,10 @@ export default function DashboardClient({
                                                             )}
                                                             {detail.status === 'CLOCKED_IN' && (
                                                                 <button
-                                                                    onClick={() => handleManualClockOut(detail.employeeId)}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleManualClockOut(detail.employeeId);
+                                                                    }}
                                                                     disabled={actionLoading === detail.employeeId}
                                                                     className="flex-1 py-3 bg-rose-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-rose-600/20"
                                                                 >
@@ -824,7 +891,8 @@ export default function DashboardClient({
                                                                 <button
                                                                     onClick={(e: React.MouseEvent) => {
                                                                         e.stopPropagation();
-                                                                        handleDeleteEmployee(emp.id);
+                                                                        setEmployeeToDelete(emp);
+                                                                        setShowDeleteConfirm(true);
                                                                     }}
                                                                     disabled={isDeleting === emp.id}
                                                                     className="opacity-0 group-hover/row:opacity-100 bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white px-4 py-2 rounded-xl transition-all text-xs font-black uppercase tracking-widest cursor-pointer border border-rose-500/20"
@@ -904,7 +972,8 @@ export default function DashboardClient({
                                                             <button
                                                                 onClick={(e: React.MouseEvent) => {
                                                                     e.stopPropagation();
-                                                                    handleDeleteEmployee(emp.id);
+                                                                    setEmployeeToDelete(emp);
+                                                                    setShowDeleteConfirm(true);
                                                                 }}
                                                                 disabled={isDeleting === emp.id}
                                                                 className="text-red-400 text-sm font-medium active:text-red-300 py-1"
@@ -945,7 +1014,7 @@ export default function DashboardClient({
                         </div>
                     ) : activeView === 'payroll' ? (
                         <div className="space-y-10">
-                            {initialPayrollData.map((period: any, idx: number) => (
+                            {payrollData.map((period: any, idx: number) => (
                                 <motion.div
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
@@ -1030,42 +1099,70 @@ export default function DashboardClient({
                         <div className="max-w-md mx-auto space-y-10 pb-32">
                             <HRSettingsForm userEmail={userEmail} />
                         </div>
-                    ) : null}
+                    ) : (
+                        <div className="flex flex-col items-center justify-center py-20 opacity-50">
+                            <Activity className="w-16 h-16 text-slate-600 mb-6" />
+                            <p className="text-slate-500 font-black uppercase tracking-[0.2em]">Select an option from the sidebar</p>
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* Add Modal */}
+            <AddEmployeeForm
+                isOpen={showAddModal}
+                onClose={() => setShowAddModal(false)}
+                onSuccess={fetchData}
+            />
+
+            <EditAttendanceModal
+                isOpen={showEditModal}
+                onClose={() => {
+                    setShowEditModal(false);
+                    setRecordToEdit(null);
+                }}
+                onSuccess={() => fetchStats(selectedDate)}
+                record={recordToEdit}
+            />
+
+            <CreateAttendanceModal
+                isOpen={showManualModal}
+                onClose={() => setShowManualModal(false)}
+                onSuccess={() => fetchStats(selectedDate)}
+                employees={employees}
+            />
+
+            {/* Logout Confirmation Modal */}
             <AnimatePresence>
                 {showLogoutConfirmation && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-slate-950/90 backdrop-blur-md"
                             onClick={() => setShowLogoutConfirmation(false)}
+                            className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"
                         />
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.95, y: 30 }}
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 30 }}
-                            className="relative glass-card rounded-[2rem] w-full max-w-sm p-8 shadow-2xl overflow-hidden text-center"
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="relative w-full max-w-sm glass-card rounded-[2.5rem] p-8 text-center border border-white/10 shadow-2xl"
                         >
-                            <div className="mx-auto w-16 h-16 rounded-full bg-rose-500/10 flex items-center justify-center mb-6 text-rose-500">
-                                <LogOut className="w-8 h-8" />
+                            <div className="w-20 h-20 bg-rose-500/10 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                                <LogOut className="w-10 h-10 text-rose-500" />
                             </div>
-                            <h3 className="text-2xl font-black text-white tracking-tight mb-2">Sign Out</h3>
-                            <p className="text-slate-400 font-medium mb-8">Are you sure you want to sign out of your account?</p>
+                            <h3 className="text-2xl font-black text-white mb-2">Sign Out</h3>
+                            <p className="text-slate-400 font-medium mb-8">Are you sure you want to end your session?</p>
                             <div className="flex gap-4">
                                 <button
                                     onClick={() => setShowLogoutConfirmation(false)}
-                                    className="flex-1 py-3 rounded-xl bg-slate-800 text-white font-bold hover:bg-slate-700 transition-colors"
+                                    className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-white rounded-2xl font-bold transition-all border border-white/10"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={logout}
-                                    className="flex-1 py-3 rounded-xl bg-rose-500 text-white font-bold hover:bg-rose-600 transition-colors shadow-lg shadow-rose-500/20"
+                                    className="flex-1 py-4 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl font-bold transition-all shadow-xl shadow-rose-500/20"
                                 >
                                     Sign Out
                                 </button>
@@ -1073,43 +1170,57 @@ export default function DashboardClient({
                         </motion.div>
                     </div>
                 )}
-                {showAddModal && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            </AnimatePresence>
+
+            {/* Delete Employee Confirmation Modal */}
+            <AnimatePresence>
+                {showDeleteConfirm && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-slate-950/90 backdrop-blur-md"
-                            onClick={() => setShowAddModal(false)}
+                            onClick={() => setShowDeleteConfirm(false)}
+                            className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"
                         />
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.95, y: 30 }}
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 30 }}
-                            className="relative glass-card rounded-[3rem] w-full max-w-2xl p-10 shadow-2xl overflow-hidden"
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="relative w-full max-w-md glass-card rounded-[2.5rem] p-10 text-center border border-white/10 shadow-2xl"
                         >
-                            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-blue-500/50 to-transparent"></div>
-                            <div className="flex justify-between items-center mb-10">
-                                <div>
-                                    <h3 className="text-3xl font-black text-white tracking-tight">Add New Employee</h3>
-                                    <p className="text-slate-400 font-medium mt-1">Create a new employee record</p>
-                                </div>
-                                <div className="p-4 rounded-3xl bg-blue-500/10 text-blue-400">
-                                    <Users className="w-8 h-8" />
+                            <div className="w-24 h-24 bg-rose-500/10 rounded-[2rem] flex items-center justify-center mx-auto mb-8">
+                                <UserX className="w-12 h-12 text-rose-500" />
+                            </div>
+                            <h3 className="text-3xl font-black text-white mb-3 tracking-tight">Delete Employee</h3>
+                            <div className="mb-8">
+                                <p className="text-slate-400 font-medium mb-1">Are you sure you want to remove</p>
+                                <p className="text-xl font-black text-white uppercase tracking-tight">{employeeToDelete?.name}?</p>
+                                <div className="mt-4 p-4 bg-rose-500/5 rounded-2xl border border-rose-500/10">
+                                    <p className="text-[10px] font-black text-rose-400 uppercase tracking-[0.2em]">
+                                        Warning: This will permanently delete all associated attendance history and payroll records.
+                                    </p>
                                 </div>
                             </div>
-                            <AddEmployeeForm
-                                onSuccess={() => {
-                                    setShowAddModal(false);
-                                    fetchData();
-                                }}
-                                onCancel={() => setShowAddModal(false)}
-                            />
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => setShowDeleteConfirm(false)}
+                                    className="flex-1 py-5 bg-white/5 hover:bg-white/10 text-white rounded-2xl font-bold transition-all border border-white/10"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleDeleteEmployee}
+                                    disabled={isDeleting !== null}
+                                    className="flex-1 py-5 bg-rose-600 hover:bg-rose-500 text-white rounded-2xl font-bold transition-all shadow-xl shadow-rose-600/20 disabled:opacity-50"
+                                >
+                                    {isDeleting ? 'Deleting...' : 'Delete Employee'}
+                                </button>
+                            </div>
                         </motion.div>
                     </div>
                 )}
             </AnimatePresence>
-
         </div>
     );
 }
