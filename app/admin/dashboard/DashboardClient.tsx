@@ -428,7 +428,7 @@ export default function DashboardClient({
                                         <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
                                         Recent Activity
                                     </h3>
-                                    <div className="space-y-5 overflow-y-auto custom-scrollbar flex-1 pr-2">
+                                    <div className="space-y-5 overflow-y-auto custom-scrollbar flex-1 pr-2 max-h-[500px]">
                                         {(!stats?.recentActivity || stats.recentActivity.length === 0) && (
                                             <div className="h-full flex flex-col items-center justify-center text-slate-500 gap-4 opacity-50">
                                                 <Clock className="w-12 h-12" />
@@ -446,19 +446,17 @@ export default function DashboardClient({
                                                     {!record.clockOutTime ? <Clock className="w-5 h-5" /> : <LogOut className="w-5 h-5" />}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-white text-sm font-bold truncate group-hover/item:text-blue-400 transition-colors">
-                                                        {record.employee.name}
-                                                    </p>
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                        <span className="text-slate-400 text-xs font-semibold">
+                                                    <p className="text-slate-300 text-xs font-medium leading-relaxed">
+                                                        <span className="text-white font-bold">{record.employee.name}</span>{' '}
+                                                        clocked {record.clockOutTime ? 'out' : 'in'} at{' '}
+                                                        <span className="text-blue-400 font-bold whitespace-nowrap">
                                                             {format(new Date(record.clockOutTime || record.clockInTime), 'hh:mm a')}
+                                                        </span>{' '}
+                                                        from{' '}
+                                                        <span className="text-emerald-400 font-bold break-words">
+                                                            {record.location || (record.clockOutTime ? record.clockOutLocation : record.clockInLocation) || 'Unspecified location'}
                                                         </span>
-                                                        {(record.clockOutLocation || record.clockInLocation) && (
-                                                            <span className="text-slate-500 text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
-                                                                • {record.clockOutTime ? record.clockOutLocation : record.clockInLocation}
-                                                            </span>
-                                                        )}
-                                                    </div>
+                                                    </p>
                                                 </div>
                                                 <div className="w-1.5 h-1.5 rounded-full bg-blue-500 opacity-0 group-hover/item:opacity-100 transition-opacity"></div>
                                             </motion.div>
@@ -524,6 +522,7 @@ export default function DashboardClient({
                                                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Employee</th>
                                                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>
                                                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">In</th>
+                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Out</th>
                                                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Location</th>
                                                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Hours</th>
                                                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Status</th>
@@ -544,7 +543,7 @@ export default function DashboardClient({
                                                 if (paginated.length === 0) {
                                                     return (
                                                         <tr>
-                                                            <td colSpan={6} className="px-8 py-10 text-center text-slate-500 font-bold uppercase tracking-widest text-xs">No records found</td>
+                                                            <td colSpan={7} className="px-8 py-10 text-center text-slate-500 font-bold uppercase tracking-widest text-xs">No records found</td>
                                                         </tr>
                                                     );
                                                 }
@@ -617,10 +616,24 @@ export default function DashboardClient({
                                                                     )}
                                                                 </td>
                                                                 <td className="px-8 py-6">
+                                                                    {detail.clockOut ? (
+                                                                        <div className="flex flex-col">
+                                                                            <span className="text-sm font-black text-amber-400 tabular-nums">
+                                                                                {format(new Date(detail.clockOut), 'HH:mm:ss')}
+                                                                            </span>
+                                                                            <span className="text-[10px] font-bold text-slate-500 uppercase">
+                                                                                {format(new Date(detail.clockOut), 'aaa')}
+                                                                            </span>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className="text-xs font-bold text-slate-600 tracking-widest">--:--:--</span>
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-8 py-6">
                                                                     <div className="flex items-center gap-2">
                                                                         <MapPin className="w-3 h-3 text-slate-500" />
                                                                         <span className="text-xs font-black text-slate-400 uppercase tracking-tight">
-                                                                            {detail.clockInLocation || 'UNSPECIFIED'}
+                                                                            {detail.location || detail.clockInLocation || detail.clockOutLocation || 'UNSPECIFIED'}
                                                                         </span>
                                                                     </div>
                                                                 </td>
@@ -641,7 +654,7 @@ export default function DashboardClient({
                                                         ))}
                                                         {totalPages > 1 && (
                                                             <tr>
-                                                                <td colSpan={6} className="px-8 py-4 bg-white/5">
+                                                                <td colSpan={7} className="px-8 py-4 bg-white/5">
                                                                     <div className="flex items-center justify-between">
                                                                         <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
                                                                             Page {attendancePage} of {totalPages}
@@ -1122,6 +1135,7 @@ export default function DashboardClient({
                 }}
                 onSuccess={() => fetchStats(selectedDate)}
                 record={recordToEdit}
+                selectedDate={selectedDate}
             />
 
             <CreateAttendanceModal

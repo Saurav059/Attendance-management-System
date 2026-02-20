@@ -87,6 +87,7 @@ export async function getDashboardStats(targetDate = new Date()) {
             employeeId: emp.employeeId,
             status,
             clockIn: firstClockIn,
+            location: sortedAtt[0].location || sortedAtt[sortedAtt.length - 1].location,
             clockInLocation: sortedAtt[0].clockInLocation,
             clockOut: isCurrentlyClockedIn ? null : lastClockOut,
             clockOutLocation: isCurrentlyClockedIn ? null : sortedAtt[sortedAtt.length - 1].clockOutLocation,
@@ -122,7 +123,7 @@ export async function getDashboardStats(targetDate = new Date()) {
         absent: Math.max(0, absentCount),
         activeClockIns: attendancesForDate.filter((a: AttendanceWithEmployee) => !a.clockOutTime).length,
         chartData,
-        recentActivity: JSON.parse(JSON.stringify(allAttendances.slice(0, 5))),
+        recentActivity: JSON.parse(JSON.stringify(allAttendances.slice(0, 50))),
         dailyDetails: JSON.parse(JSON.stringify(dailyDetails)),
     };
 }

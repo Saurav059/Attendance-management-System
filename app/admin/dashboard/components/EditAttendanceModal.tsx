@@ -9,14 +9,26 @@ interface EditAttendanceModalProps {
     onClose: () => void;
     onSuccess: () => void;
     record: any;
+    selectedDate: string;
 }
 
-export default function EditAttendanceModal({ isOpen, onClose, onSuccess, record }: EditAttendanceModalProps) {
-    const [clockIn, setClockIn] = useState(record?.clockInTime ? format(new Date(record.clockInTime), "yyyy-MM-dd'T'HH:mm") : '');
-    const [clockOut, setClockOut] = useState(record?.clockOutTime ? format(new Date(record.clockOutTime), "yyyy-MM-dd'T'HH:mm") : '');
+export default function EditAttendanceModal({ isOpen, onClose, onSuccess, record, selectedDate }: EditAttendanceModalProps) {
+    const [clockIn, setClockIn] = useState(record?.clockIn ? format(new Date(record.clockIn), "HH:mm") : '');
+    const [clockOut, setClockOut] = useState(record?.clockOut ? format(new Date(record.clockOut), "HH:mm") : '');
+    const [location, setLocation] = useState(record?.clockInLocation || record?.location || '');
     const [reason, setReason] = useState(record?.editReason || '');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    React.useEffect(() => {
+        if (isOpen) {
+            setClockIn(record?.clockIn ? format(new Date(record.clockIn), "HH:mm") : '');
+            setClockOut(record?.clockOut ? format(new Date(record.clockOut), "HH:mm") : '');
+            setLocation(record?.location || record?.clockInLocation || '');
+            setReason(record?.editReason || '');
+            setError(null);
+        }
+    }, [isOpen, record]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -24,10 +36,12 @@ export default function EditAttendanceModal({ isOpen, onClose, onSuccess, record
         setError(null);
 
         try {
-            await axios.post('/api/attendance/edit', {
-                attendanceId: record.id,
-                clockInTime: clockIn,
-                clockOutTime: clockOut || null,
+            await axios.patch('/api/admin/attendance', {
+                employeeId: record?.employeeId,
+                date: selectedDate,
+                clockIn,
+                clockOut: clockOut || null,
+                location: location || null,
                 reason
             });
             onSuccess();
@@ -76,29 +90,56 @@ export default function EditAttendanceModal({ isOpen, onClose, onSuccess, record
                         )}
 
                         <div className="space-y-4">
-                            <div>
-                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Clock In Time</label>
-                                <div className="relative group">
-                                    <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-blue-500 transition-colors" />
-                                    <input
-                                        type="datetime-local"
-                                        required
-                                        value={clockIn}
-                                        onChange={(e) => setClockIn(e.target.value)}
-                                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white font-bold focus:bg-white/10 focus:border-blue-500/50 outline-none transition-all [color-scheme:dark]"
-                                    />
+                            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex justify-between items-center text-sm">
+                                <div>
+                                    <span className="text-slate-500 font-bold mr-2">Employee:</span>
+                                    <span className="text-white font-black">{record?.name}</span>
+                                </div>
+                                <div>
+                                    <span className="text-slate-500 font-bold mr-2">Date:</span>
+                                    <span className="text-white font-black">{selectedDate}</span>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Clock In Time</label>
+                                    <div className="relative group">
+                                        <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-blue-500 transition-colors" />
+                                        <input
+                                            type="time"
+                                            required
+                                            value={clockIn}
+                                            onChange={(e) => setClockIn(e.target.value)}
+                                            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white font-bold focus:bg-white/10 focus:border-blue-500/50 outline-none transition-all [color-scheme:dark]"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Clock Out Time</label>
+                                    <div className="relative group">
+                                        <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-blue-500 transition-colors" />
+                                        <input
+                                            type="time"
+                                            value={clockOut}
+                                            onChange={(e) => setClockOut(e.target.value)}
+                                            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white font-bold focus:bg-white/10 focus:border-blue-500/50 outline-none transition-all [color-scheme:dark]"
+                                        />
+                                    </div>
                                 </div>
                             </div>
 
                             <div>
-                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Clock Out Time (Optional)</label>
+                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Location</label>
                                 <div className="relative group">
-                                    <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-blue-500 transition-colors" />
+                                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-blue-500 transition-colors" />
                                     <input
-                                        type="datetime-local"
-                                        value={clockOut}
-                                        onChange={(e) => setClockOut(e.target.value)}
-                                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white font-bold focus:bg-white/10 focus:border-blue-500/50 outline-none transition-all [color-scheme:dark]"
+                                        type="text"
+                                        value={location}
+                                        onChange={(e) => setLocation(e.target.value)}
+                                        placeholder="e.g., Office, Remote, Site A"
+                                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white font-bold focus:bg-white/10 focus:border-blue-500/50 outline-none transition-all"
                                     />
                                 </div>
                             </div>

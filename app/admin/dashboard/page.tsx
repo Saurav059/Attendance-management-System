@@ -1,5 +1,4 @@
-import { getDashboardStats, getBiWeeklyPayroll } from '@/lib/reports';
-import prisma from '@/lib/prisma';
+
 import { getSession } from '@/lib/auth';
 import DashboardClient from './DashboardClient';
 import { redirect } from 'next/navigation';
