@@ -11,13 +11,21 @@ export async function getDashboardStats(targetDate = new Date()) {
 
     const [totalEmployees, attendancesForDate, allEmployees, weekAttendances, allAttendances] = await Promise.all([
         prisma.employee.count(),
-        // Get attendance for the selected date
+        // Get attendance for the selected date, PLUS any active clock-ins
         prisma.attendance.findMany({
             where: {
-                clockInTime: {
-                    gte: selectedDate,
-                    lte: nextDay,
-                },
+                OR: [
+                    {
+                        clockInTime: {
+                            gte: selectedDate,
+                            lt: nextDay,
+                        }
+                    },
+                    {
+                        // Always include active folks so the dashboard matches the kiosk's "Already clocked in" state
+                        clockOutTime: null
+                    }
+                ]
             },
             include: {
                 employee: true,

@@ -602,7 +602,7 @@ export default function DashboardClient({
                                                                     </div>
                                                                 </td>
                                                                 <td className="px-8 py-6">
-                                                                    {detail.clockIn ? (
+                                                                    {detail.clockIn && detail.status !== 'ABSENT' ? (
                                                                         <div className="flex flex-col">
                                                                             <span className="text-sm font-black text-emerald-400 tabular-nums">
                                                                                 {format(new Date(detail.clockIn), 'HH:mm:ss')}
@@ -729,7 +729,7 @@ export default function DashboardClient({
                                                             <div>
                                                                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Time In</p>
                                                                 <p className="text-xs text-white font-bold tabular-nums">
-                                                                    {detail.clockIn ? format(new Date(detail.clockIn), 'HH:mm:ss') : '--:--:--'}
+                                                                    {detail.clockIn && detail.status !== 'ABSENT' ? format(new Date(detail.clockIn), 'HH:mm:ss') : '--:--:--'}
                                                                 </p>
                                                             </div>
                                                             <div className="text-right">
