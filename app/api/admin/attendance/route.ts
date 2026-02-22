@@ -26,19 +26,19 @@ export async function PATCH(request: Request) {
             return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
         }
 
-        // Combine date and time
-        const clockInDateTime = parseISO(`${date}T${clockIn}`);
+        // Combine date and time, forcing Nepal timezone (+05:45) so UTC servers (like Vercel) parse it correctly
+        const clockInDateTime = new Date(`${date}T${clockIn}:00+05:45`);
         let clockOutDateTime = null;
 
         if (clockOut) {
-            clockOutDateTime = parseISO(`${date}T${clockOut}`);
+            clockOutDateTime = new Date(`${date}T${clockOut}:00+05:45`);
             if (clockOutDateTime <= clockInDateTime) {
                 return NextResponse.json({ error: 'Clock out time must be after clock in time' }, { status: 400 });
             }
         }
 
-        const selectedDate = parseISO(date);
-        if (!isValid(selectedDate) || !isValid(clockInDateTime) || (clockOutDateTime && !isValid(clockOutDateTime))) {
+        const selectedDate = new Date(`${date}T00:00:00+05:45`);
+        if (isNaN(selectedDate.getTime()) || isNaN(clockInDateTime.getTime()) || (clockOutDateTime && isNaN(clockOutDateTime.getTime()))) {
             return NextResponse.json({ error: 'Invalid date or time format' }, { status: 400 });
         }
 
@@ -51,13 +51,16 @@ export async function PATCH(request: Request) {
 
         const operatorEmail = session.email || 'SYSTEM';
 
+        // Calculate exactly 24 hours for the Nepal timezone day boundary
+        const nextDay = new Date(selectedDate.getTime() + 24 * 60 * 60 * 1000);
+
         // Check if attendance exists for that employee on that specific date
         const existingAttendance = await prisma.attendance.findFirst({
             where: {
                 employeeId: employeeRecord.id,
                 clockInTime: {
-                    gte: startOfDay(selectedDate),
-                    lt: endOfDay(selectedDate)
+                    gte: selectedDate,
+                    lt: nextDay
                 }
             }
         });
